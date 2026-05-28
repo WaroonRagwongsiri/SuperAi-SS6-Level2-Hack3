@@ -1,457 +1,811 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fight Mode</title>
   <style>
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.055);
+      --line: rgba(255, 255, 255, 0.11);
+      --red: #dc2626;
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --muted: #a1a1aa;
+      --dim: #71717a;
     }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(255, 55, 25, .22), transparent 34%),
-        linear-gradient(180deg, #080808, #0e0e0f 48%, #050505);
-      color: #f7f7f7;
-      font-family: Impact, "Arial Black", Arial, sans-serif;
+      background: var(--bg);
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      user-select: none;
+    }
+
+    button {
+      font: inherit;
     }
 
     .screen {
-      width: 100vw;
       min-height: 100vh;
-      padding: 8px clamp(12px, 2.4vw, 28px) 24px;
-      overflow-x: hidden;
+      padding: clamp(18px, 3vw, 28px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 18% 18%, rgba(220, 38, 38, 0.13), transparent 34%),
+        radial-gradient(circle at 82% 22%, rgba(59, 130, 246, 0.10), transparent 34%),
+        #050505;
     }
 
-    .topbar {
-      display: grid;
-      grid-template-columns: 104px 1fr 128px;
-      align-items: start;
-      gap: 12px;
-    }
-
-    .back-button,
-    .coin-box {
-      height: 34px;
-      border: 1px solid rgba(255,255,255,.25);
-      border-radius: 5px;
-      background: rgba(0,0,0,.7);
-      color: #fff;
-      font: inherit;
-      font-size: 18px;
-      letter-spacing: .02em;
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      z-index: 2;
     }
 
     .back-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 15px;
+      background: var(--panel);
+      color: var(--muted);
       cursor: pointer;
-      text-align: left;
-      padding: 0 10px;
-    }
-
-    .coin-box {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      justify-content: space-around;
-      border-color: #b21b16;
+      justify-content: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
     }
 
-    .coin {
-      width: 20px;
-      height: 20px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 50%;
-      background: #f6b51b;
-      color: #171000;
-      font-size: 15px;
+    .back-button:hover {
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.48);
+      background: rgba(220, 38, 38, 0.08);
     }
 
-    .plus {
-      color: #ff2d23;
-      font-size: 22px;
-      line-height: 1;
+    .back-button svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 180ms ease;
     }
 
-    .hero-title {
+    .back-button:hover svg {
+      transform: translateX(-3px);
+    }
+
+    .title-block {
       text-align: center;
+      min-width: 0;
     }
 
     h1 {
       margin: 0;
-      color: #d71919;
-      font-size: clamp(42px, 6vw, 78px);
-      line-height: .8;
+      font-size: clamp(38px, 5vw, 54px);
+      font-weight: 900;
       font-style: italic;
-      letter-spacing: 1px;
-      text-shadow: 0 2px 0 #440000;
+      line-height: 0.9;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .red-glow {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(220, 38, 38, 0.55);
     }
 
     .subtitle {
-      margin-top: 8px;
-      color: #bdbdbd;
-      font-size: clamp(20px, 2.8vw, 34px);
-      font-style: italic;
-      line-height: .9;
+      margin: 8px 0 0;
+      color: #71717a;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
     }
 
-    .hint {
-      margin-top: 8px;
-      color: #e8e8e8;
-      font-family: Arial, sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .hint::before,
-    .hint::after {
-      content: "←";
-      margin: 0 10px;
-      color: #e01717;
-    }
-
-    .hint::after {
-      content: "→";
-    }
-
-    .section-head {
+    .gold-pill {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+      padding: 0 14px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin: 18px 0 10px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid rgba(255,255,255,.12);
+      gap: 9px;
+      white-space: nowrap;
     }
 
-    .section-title {
+    .gold-pill svg {
+      width: 17px;
+      height: 17px;
+      color: var(--amber);
+    }
+
+    .gold-pill .label {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .gold-pill .value {
+      color: #fbbf24;
+      font-family: "Courier New", monospace;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .config {
+      width: min(100%, 950px);
+      margin: 12px auto 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .arrow-button {
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: #71717a;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+
+    .arrow-button:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.055);
+      transform: scale(1.06);
+    }
+
+    .arrow-button svg {
+      width: 30px;
+      height: 30px;
+    }
+
+    .carousel-shell {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #fff;
-      font-size: clamp(22px, 3vw, 30px);
-      font-style: italic;
-      text-shadow: 0 2px 0 #000;
+      width: 100%;
     }
 
-    .section-title.premium {
-      color: #ffd326;
+    .carousel-body {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
     }
 
-    .badge {
-      width: 34px;
-      height: 34px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 50%;
-      border: 2px solid currentColor;
-      font-size: 19px;
-    }
-
-    .section-note {
-      color: #bdbdbd;
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .premium-note {
-      color: #ffd326;
-    }
-
-    .fighter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    .carousel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 12px;
+      padding: 0 8px;
+      margin-bottom: 6px;
+    }
+
+    .characters-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .characters-title .name {
+      border-left: 1px solid var(--red);
+      padding-left: 9px;
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .pool-badge {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 5px;
+      background: #111;
+      color: #a1a1aa;
+      padding: 4px 7px;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .counter {
+      color: #a1a1aa;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .slider {
+      display: flex;
+      gap: 18px;
+      padding: 16px 10px 22px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      scrollbar-width: none;
+    }
+
+    .slider::-webkit-scrollbar {
+      display: none;
     }
 
     .fighter-card {
+      width: 210px;
+      height: 260px;
+      flex: 0 0 auto;
+      scroll-snap-align: start;
+      border: 1px solid rgba(127, 29, 29, 0.42);
+      border-radius: 18px;
+      background: rgba(127, 29, 29, 0.06);
+      padding: 16px;
       position: relative;
-      min-height: 230px;
       overflow: hidden;
-      border: 2px solid #3b3b3b;
-      border-radius: 6px;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,0) 42%),
-        #101010;
       cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 180ms ease, border-color 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
+      opacity: 0.72;
     }
 
-    .fighter-card.free.selected {
-      border-color: #ff3333;
-      box-shadow: 0 0 0 1px #ff3333, 0 0 24px rgba(255, 0, 0, .42);
+    .fighter-card:hover {
+      opacity: 1;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .fighter-card.selected {
+      z-index: 2;
+      transform: translateY(-6px) scale(1.04);
+      opacity: 1;
+      border-color: #ef4444;
+      background: rgba(127, 29, 29, 0.22);
+      box-shadow: 0 0 36px rgba(239, 68, 68, 0.62);
     }
 
     .fighter-card.premium {
-      border-color: #a97d00;
+      border-color: rgba(146, 64, 14, 0.46);
+      background: rgba(120, 53, 15, 0.07);
+      opacity: 0.62;
     }
 
-    .fighter-card.premium.locked {
-      cursor: default;
+    .fighter-card.premium.selected {
+      border-color: #facc15;
+      background: rgba(113, 63, 18, 0.28);
+      box-shadow: 0 0 42px rgba(250, 204, 21, 0.72);
+      opacity: 1;
     }
 
-    .fighter-image {
+    .fighter-card::before,
+    .fighter-card::after {
+      content: "";
       position: absolute;
       inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: .92;
-      filter: contrast(1.08) saturate(.9);
+      pointer-events: none;
     }
 
-    .fighter-card.premium .fighter-image {
-      filter: sepia(.38) contrast(1.08) saturate(1.25);
+    .fighter-card::before {
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0.22;
+      transform: scale(1.02);
     }
 
-    .fighter-shade {
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.22) 45%, rgba(0,0,0,.9)),
-        repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 1px, transparent 1px 12px);
+    .fighter-card.selected::before {
+      opacity: 0.42;
+      transform: scale(1.12);
     }
 
-    .fighter-card.free.selected .fighter-shade {
-      background:
-        linear-gradient(180deg, rgba(90,0,0,.1), rgba(0,0,0,.24) 45%, rgba(0,0,0,.92)),
-        repeating-linear-gradient(135deg, rgba(255,0,0,.18) 0 2px, transparent 2px 14px);
+    .fighter-card::after {
+      z-index: 1;
+      background: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.82) 48%, rgba(0, 0, 0, 0.16) 100%);
     }
 
-    .fighter-name {
-      position: absolute;
-      left: 10px;
-      top: 10px;
-      color: #d8d8d8;
-      font-size: 28px;
-      font-style: italic;
-      line-height: .88;
-      transform: rotate(-8deg);
-      text-shadow: 0 2px 0 #000;
+    .fighter-card[data-image]::before {
+      background-image: var(--fighter-image);
     }
 
-    .fighter-card.premium .fighter-name {
-      color: #ffd326;
+    .fighter-top,
+    .fighter-bottom {
+      position: relative;
+      z-index: 2;
     }
 
-    .check {
-      position: absolute;
-      right: 8px;
-      top: 8px;
-      width: 26px;
-      height: 26px;
-      display: none;
-      place-items: center;
-      border-radius: 50%;
-      background: #d71919;
-      border: 2px solid #fff;
-      font-family: Arial, sans-serif;
-      font-weight: 900;
-    }
-
-    .fighter-card.selected .check {
-      display: grid;
-    }
-
-    .fighter-info {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 0 10px 10px;
-      text-align: center;
-    }
-
-    .display-name {
-      font-size: 20px;
-      font-style: italic;
-      line-height: .9;
-    }
-
-    .role {
-      color: #d3d3d3;
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .power {
-      margin-top: 9px;
+    .fighter-top {
       display: flex;
-      align-items: center;
-      gap: 7px;
-      font-family: Arial, sans-serif;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .fighter-tag {
+      border-radius: 5px;
+      background: #3f0f0f;
+      border: 1px solid rgba(127, 29, 29, 0.34);
+      color: #f87171;
+      padding: 6px 8px;
+      font-family: "Courier New", monospace;
       font-size: 10px;
       font-weight: 900;
-      text-align: left;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .stars {
-      color: #e61d1d;
-      letter-spacing: 2px;
-      font-size: 15px;
+    .fighter-card.selected .fighter-tag {
+      background: #dc2626;
+      color: #fff;
+      animation: pulse 1.4s ease-in-out infinite;
     }
 
-    .price {
-      width: 78px;
-      height: 25px;
-      margin: 8px auto 0;
+    .fighter-card.premium .fighter-tag {
+      background: #451a03;
+      color: #fbbf24;
+      border-color: rgba(180, 83, 9, 0.38);
+    }
+
+    .fighter-card.premium.selected .fighter-tag {
+      background: #eab308;
+      color: #050505;
+    }
+
+    .small-icon {
+      width: 20px;
+      height: 20px;
+      color: rgba(239, 68, 68, 0.7);
+    }
+
+    .fighter-card.premium .small-icon {
+      color: rgba(250, 204, 21, 0.68);
+    }
+
+    .specs {
+      color: #fca5a5;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .fighter-card.premium .specs {
+      color: #fde68a;
+    }
+
+    .thai-name {
+      margin-top: 8px;
+      color: #fef2f2;
+      font-size: 20px;
+      font-weight: 900;
+      font-style: italic;
+      line-height: 1.05;
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .fighter-card:not(.selected) .thai-name {
+      color: #d4d4d8;
+    }
+
+    .english-name {
+      margin-top: 7px;
+      color: rgba(239, 68, 68, 0.7);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .fighter-card.premium .english-name {
+      color: rgba(245, 158, 11, 0.72);
+    }
+
+    .start-row {
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .premium-error {
+      display: none;
+      max-width: 760px;
+      border: 1px solid rgba(239, 68, 68, 0.48);
+      border-radius: 13px;
+      background: rgba(69, 10, 10, 0.9);
+      color: #fecaca;
+      padding: 11px 18px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-align: center;
+      text-transform: uppercase;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.48);
+    }
+
+    .premium-error.visible {
+      display: block;
+      animation: bounce-in 350ms ease both;
+    }
+
+    .start-button {
+      min-width: min(100%, 320px);
+      min-height: 56px;
+      border: 0;
+      border-radius: 18px;
+      background: #dc2626;
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      border: 1px solid #b58a00;
-      border-radius: 4px;
-      background: rgba(0,0,0,.72);
-      color: #ffd326;
-      font-size: 18px;
+      gap: 12px;
+      padding: 0 54px;
+      font-size: 19px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      box-shadow: 0 0 28px rgba(220, 38, 38, 0.36);
+      transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
     }
 
-    .footer-note {
-      margin-top: 12px;
-      color: #777;
-      text-align: center;
-      font-family: Arial, sans-serif;
-      font-size: 13px;
-      font-weight: 700;
+    .start-button:hover {
+      transform: scale(1.04);
+      background: #b91c1c;
+      box-shadow: 0 0 34px rgba(220, 38, 38, 0.46);
     }
 
-    @media (max-width: 720px) {
-      .screen {
-        padding: 12px 10px 24px;
+    .start-button:active {
+      transform: scale(0.97);
+    }
+
+    .start-button svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    footer {
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      color: #52525b;
+      font-family: "Courier New", monospace;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: 0.68;
+      }
+    }
+
+    @keyframes bounce-in {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(6px);
       }
 
-      .topbar {
-        grid-template-columns: 76px 1fr 96px;
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    @media (max-width: 760px) {
+      header {
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .back-button,
-      .coin-box {
-        height: 30px;
-        font-size: 14px;
+      .gold-pill {
+        width: 100%;
       }
 
-      .section-head {
-        align-items: flex-start;
-        flex-direction: column;
+      .gold-pill {
+        justify-content: center;
       }
 
-      .fighter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .carousel-shell {
+        gap: 4px;
+      }
+
+      .fighter-card {
+        width: 170px;
+        height: 220px;
+      }
+
+      footer {
+        display: none;
       }
     }
   </style>
 </head>
-<body>
-  <main class="screen">
-    <header class="topbar">
-      <button class="back-button" id="backButton" type="button">‹ BACK</button>
 
-      <div class="hero-title">
-        <h1>FIGHT MODE</h1>
-        <div class="subtitle">SELECT YOUR FIGHTER</div>
-        <div class="hint">เลือกคู่ต่อสู้ของคุณ</div>
+<body>
+  <main id="fightmode" class="screen">
+    <header>
+      <button class="back-button" id="backButton" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 19-7-7 7-7" />
+          <path d="M19 12H5" />
+        </svg>
+        <span>Back To Menu</span>
+      </button>
+
+      <div class="title-block">
+        <h1>Fight<span class="red-glow">Mode</span></h1>
+        <p class="subtitle">สังเวียนแลกหมัดจำลองระดับซูเปอร์แมตช์ (Challenger Arena)</p>
       </div>
 
-      <div class="coin-box">
-        <span class="coin">$</span>
-        <span>1,250</span>
-        <span class="plus">+</span>
+      <div class="gold-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M9.5 9.5c.7-.7 1.5-1 2.5-1 1.7 0 3 1 3 2.4 0 1.6-1.4 2.3-3 2.3h-1" />
+          <path d="M12 16v.1" />
+        </svg>
+        <span class="label">Your Gold:</span>
+        <span class="value" id="coinCount">1,200</span>
       </div>
     </header>
 
-    <section>
-      <div class="section-head">
-        <div class="section-title"><span class="badge">✊</span> BASIC FIGHTERS</div>
-        <div class="section-note">นักสู้พื้นฐาน เล่นฟรีได้เลย!</div>
+    <section class="config">
+      <div class="carousel-shell">
+        <button class="arrow-button" id="prevFighterButton" type="button" aria-label="Previous fighter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+
+        <div class="carousel-body">
+          <div class="carousel-head">
+            <div class="characters-title">
+              <span class="name">Characters</span>
+              <span class="pool-badge" id="poolBadge">โหมดฟรี (Free Mode)</span>
+            </div>
+            <span class="counter" id="fighterCounter">Challenger #1 / 10</span>
+          </div>
+
+          <div class="slider" id="fighterSlider" aria-label="Fighter selection"></div>
+        </div>
+
+        <button class="arrow-button" id="nextFighterButton" type="button" aria-label="Next fighter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
       </div>
-      <div class="fighter-grid" id="freeGrid"></div>
+
+      <div class="start-row">
+        <div class="premium-error" id="premiumError">
+          ขออภัย ตัวละคร Premium ใช้สำหรับดู Preview เท่านั้น กรุณาเลือกตัวละครในหมวด Characters เพื่อเริ่มต่อสู้!
+        </div>
+
+        <button class="start-button" id="startFightButton" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M13.5 1.8c.8 2.8.1 4.7-1.2 6.2-.8.9-1.7 1.7-2.3 2.8-.7 1.2-.8 2.5-.2 3.9.6-1.2 1.4-2.2 2.5-3.1 1.8-1.5 3.5-3.2 3.7-6.1 3.1 2.1 4.9 5 4.9 8.1 0 4.4-3.6 8-8.5 8s-8.5-3.2-8.5-7.8c0-2.7 1.3-5.1 3.2-7.1.8 1.3 1.7 2 2.7 2.1.6-2.8 1.5-5 3.7-7Z" />
+          </svg>
+          <span>Start Fight</span>
+        </button>
+      </div>
     </section>
 
-    <section>
-      <div class="section-head">
-        <div class="section-title premium"><span class="badge">♕</span> PREMIUM FIGHTERS</div>
-        <div class="section-note premium-note">นักสู้พิเศษ ปลดล็อกด้วยเหรียญ</div>
-      </div>
-      <div class="fighter-grid" id="premiumGrid"></div>
-    </section>
-
-    <div class="footer-note">ปลดล็อกนักสู้พิเศษ เพื่อปลดล็อกท่าไม้ตายสุดโหด!</div>
+    <footer>
+      <div>System Ready &bull; Fight Arena v1.2.0</div>
+      <div>AI Punch Emulator Engine</div>
+      <div>Soph Dark Theme Spec</div>
+    </footer>
   </main>
 
   <script>
-    const placeholder = 'images/a-gong.png';
+    const imageA = 'images/a-gong.png';
+    const imageB = 'images/image%2032.png';
+    const imageC = 'images/image%2033.png';
+    const imageD = 'images/image%2034.png';
+    const glove = 'images/boxing-glove.png';
 
-    const fighters = {
-      free: [
-        { name: "N'JIM", role: 'จิมมี่ ศิษย์แม่คำปุ้น', image_path: placeholder, power: 5, health: 1000 },
-        { name: 'ATOM', role: 'Optimizer', image_path: placeholder, power: 4, health: 120 },
-        { name: 'KAI', role: 'ไก่', image_path: placeholder, power: 4, health: 140 },
-        { name: 'SINGHA', role: 'สิงหา', image_path: placeholder, power: 4, health: 160 },
-        { name: 'TOR', role: 'ต่อ', image_path: placeholder, power: 4, health: 180 }
-      ],
-      premium: [
-        { name: 'AJ. SAI SAI', role: 'อ.ทราย', image_path: placeholder, power: 5, health: 240, price: 999 },
-        { name: 'AJ. NUCH', role: 'อ.นุช', image_path: placeholder, power: 5, health: 260, price: 999 },
-        { name: 'AJ. THEPCHAI', role: 'อ.เทพชัย', image_path: placeholder, power: 5, health: 280, price: 999 },
-        { name: 'AJ. ASLAN', role: 'อ.อัสลัน', image_path: placeholder, power: 5, health: 300, price: 999 },
-        { name: 'AJ. THANA', role: 'อ.ธนา', image_path: placeholder, power: 5, health: 320, price: 999 }
-      ]
-    };
+    const basicFighters = [
+      { id: 'b1', name: 'AMA', thaiName: 'อาม่าสายบวก', image_path: imageA, specs: 'Power: ★★★★☆ | Speed: ★★★☆☆', power: 4, health: 140 },
+      { id: 'b2', name: 'Gran Power', thaiName: 'ยายพลังม้า', image_path: imageB, specs: 'Power: ★☆☆ | Speed: ★★★', power: 1, health: 120 },
+      { id: 'b3', name: 'Muay Auntie', thaiName: 'ป้าลุยสวน', image_path: imageC, specs: 'Power: ★★★ | Speed: ★☆☆', power: 3, health: 130 },
+      { id: 'b4', name: 'Drunken Grandpa', thaiName: 'ตาหมัดเมา', image_path: imageD, specs: 'Power: ★★☆ | Speed: ★★★', power: 2, health: 135 },
+      { id: 'b5', name: 'Street Uncle', thaiName: 'ลุงสมชายนักบู๊', image_path: glove, specs: 'Power: ★★★ | Speed: ★★☆', power: 3, health: 145 }
+    ];
 
-    function stars(count) {
-      return '★★★★★'.slice(0, count) + '☆☆☆☆☆'.slice(0, 5 - count);
-    }
+    const premiumFighters = [
+      { id: 'p1', name: 'Sayan Gong Golden', thaiName: 'ซูเปอร์อากงทองคำ', image_path: imageA, specs: 'Power: ★★★ | Speed: ★★★', price: 200, power: 3, health: 200 },
+      { id: 'p2', name: 'Cyborg Granny v3', thaiName: 'ยายเหล็กไหลไซบอร์ก', image_path: imageB, specs: 'Power: ★★★★ | Speed: ★★☆', price: 450, power: 4, health: 220 },
+      { id: 'p3', name: 'Kru Muay Legend', thaiName: 'ครูมวยในตำนาน', image_path: imageC, specs: 'Power: ★★★★★ | Speed: ★★★★', price: 600, power: 5, health: 260 },
+      { id: 'p4', name: 'Yip Grandmaster', thaiName: 'อาจารย์ยิปหมิ่น', image_path: imageD, specs: 'Power: ★★★★★ | Speed: ★★★★★', price: 800, power: 5, health: 300 },
+      { id: 'p5', name: 'Iron Fist Butler', thaiName: 'พ่อบ้านหมัดเหล็ก', image_path: glove, specs: 'Power: ★★★★☆ | Speed: ★★★☆☆', price: 500, power: 4, health: 240 }
+    ];
 
-    function createFighterCard(fighter, group, index) {
-      const card = document.createElement('button');
-      card.className = `fighter-card ${group}${group === 'premium' ? ' locked' : ''}${group === 'free' && index === 0 ? ' selected' : ''}`;
-      card.type = 'button';
-      card.disabled = group === 'premium';
-      card.innerHTML = `
-        <img class="fighter-image" src="${fighter.image_path}" alt="${fighter.name}">
-        <div class="fighter-shade"></div>
-        <div class="fighter-name">${fighter.name.replace(' ', '<br>')}</div>
-        <div class="check">✓</div>
-        <div class="fighter-info">
-          <div class="display-name">${fighter.name}</div>
-          <div class="role">${fighter.role}</div>
-          ${group === 'premium'
-            ? `<div class="role">LAST BOSS</div><div class="price"><span class="coin">$</span>${fighter.price}</div>`
-            : `<div class="power"><span>POWER</span><span class="stars">${stars(fighter.power)}</span></div>`}
-        </div>
-      `;
+    let selectedIndex = 0;
+    let premiumErrorTimer = null;
 
-      if (group === 'free') {
-        card.addEventListener('click', () => {
-          document.querySelectorAll('.fighter-card.free').forEach((item) => {
-            item.classList.remove('selected');
-          });
-          card.classList.add('selected');
-          localStorage.setItem('selectedFighter', fighter.name);
-          localStorage.setItem('selectedEnemy', JSON.stringify(fighter));
-          window.location.href = 'fighting.html';
-        });
+    const allFighters = [
+      ...basicFighters.map((fighter, index) => ({ ...fighter, pool: 'basic', index })),
+      ...premiumFighters.map((fighter, index) => ({ ...fighter, pool: 'premium', index }))
+    ];
+
+    const slider = document.getElementById('fighterSlider');
+    const poolBadge = document.getElementById('poolBadge');
+    const fighterCounter = document.getElementById('fighterCounter');
+    const premiumError = document.getElementById('premiumError');
+
+    document.getElementById('coinCount').textContent =
+      Number(localStorage.getItem('boxingCoins') || '1200').toLocaleString();
+
+    function iconSvg(type) {
+      if (type === 'lock') {
+        return '<svg class="small-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
       }
-
-      return card;
+      return '<svg class="small-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>';
     }
 
-    function renderGrid(group, elementId) {
-      const grid = document.getElementById(elementId);
-      fighters[group].forEach((fighter, index) => {
-        grid.appendChild(createFighterCard(fighter, group, index));
+    function renderFighters() {
+      slider.innerHTML = '';
+
+      allFighters.forEach((fighter, index) => {
+        const card = document.createElement('article');
+        card.id = `fighter-card-${index}`;
+        card.className = `fighter-card ${fighter.pool === 'premium' ? 'premium' : 'basic'}${index === selectedIndex ? ' selected' : ''}`;
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', fighter.name);
+        card.style.setProperty('--fighter-image', `url('${fighter.image_path}')`);
+        card.dataset.image = fighter.image_path;
+        card.innerHTML = `
+          <div class="fighter-top">
+            <span class="fighter-tag">${index === selectedIndex ? (fighter.pool === 'premium' ? 'Preview' : 'Active') : (fighter.pool === 'premium' ? 'Locked' : 'Free')}</span>
+            ${iconSvg(fighter.pool === 'premium' ? 'lock' : 'user')}
+          </div>
+          <div class="fighter-bottom">
+            <div class="specs">${fighter.specs}</div>
+            <div class="thai-name">${fighter.thaiName}</div>
+            <div class="english-name">name: ${fighter.name}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => selectFighter(index));
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectFighter(index);
+          }
+        });
+
+        slider.appendChild(card);
       });
     }
 
-    renderGrid('free', 'freeGrid');
-    renderGrid('premium', 'premiumGrid');
+    function updateSelection() {
+      document.querySelectorAll('.fighter-card').forEach((card, index) => {
+        card.classList.toggle('selected', index === selectedIndex);
+        const tag = card.querySelector('.fighter-tag');
+        const fighter = allFighters[index];
+        tag.textContent = index === selectedIndex ? (fighter.pool === 'premium' ? 'Preview' : 'Active') : (fighter.pool === 'premium' ? 'Locked' : 'Free');
+      });
 
+      const selected = allFighters[selectedIndex];
+      poolBadge.textContent = selected.pool === 'basic' ? 'โหมดฟรี (Free Mode)' : 'พรีเมียม (Premium Stance)';
+      fighterCounter.textContent = `Challenger #${selectedIndex + 1} / ${allFighters.length}`;
+
+      const activeCard = document.getElementById(`fighter-card-${selectedIndex}`);
+      if (activeCard) {
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+
+    function selectFighter(index) {
+      selectedIndex = (index + allFighters.length) % allFighters.length;
+      updateSelection();
+    }
+
+    function showPremiumError() {
+      premiumError.classList.add('visible');
+      clearTimeout(premiumErrorTimer);
+      premiumErrorTimer = setTimeout(() => {
+        premiumError.classList.remove('visible');
+      }, 4500);
+    }
+
+    function startFight() {
+      const selected = allFighters[selectedIndex];
+      if (selected.pool === 'premium') {
+        showPremiumError();
+        return;
+      }
+
+      const selectedEnemy = selected;
+      const playerName = localStorage.getItem('boxingPlayerName') || 'CHAMP';
+      const playerFighter = {
+        name: playerName,
+        thaiName: '',
+        specs: '',
+        image_path: ''
+      };
+
+      localStorage.setItem('selectedPlayerFighter', JSON.stringify(playerFighter));
+      localStorage.setItem('selectedFighter', playerName);
+      localStorage.setItem('selectedEnemy', JSON.stringify(selectedEnemy));
+      fetch('/timer-mode/fight', { method: 'POST', keepalive: true }).catch(() => {});
+
+      const params = new URLSearchParams({
+        fighter: playerFighter.name,
+        fighterThai: playerFighter.thaiName,
+        fighterSpecs: playerFighter.specs,
+        fighterImage: playerFighter.image_path,
+        enemy: selectedEnemy.name,
+        enemyThai: selectedEnemy.thaiName || '',
+        enemySpecs: selectedEnemy.specs || '',
+        enemyImage: selectedEnemy.image_path,
+        enemyHealth: String(selectedEnemy.health)
+      });
+      window.location.href = `fighting.html?${params.toString()}`;
+    }
+
+    document.getElementById('prevFighterButton').addEventListener('click', () => selectFighter(selectedIndex - 1));
+    document.getElementById('nextFighterButton').addEventListener('click', () => selectFighter(selectedIndex + 1));
+    document.getElementById('startFightButton').addEventListener('click', startFight);
     document.getElementById('backButton').addEventListener('click', () => {
       window.location.href = 'mode.html';
     });
+
+    renderFighters();
+    updateSelection();
   </script>
 </body>
+
 </html>

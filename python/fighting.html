@@ -57,6 +57,15 @@
       letter-spacing: .04em;
     }
 
+    .fighter-spec {
+      color: #a8a8a8;
+      font-family: "Courier New", monospace;
+      font-size: clamp(9px, 1.2vw, 12px);
+      font-weight: 800;
+      letter-spacing: .04em;
+      min-height: 14px;
+    }
+
     .bar {
       height: 22px;
       overflow: hidden;
@@ -135,6 +144,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      position: relative;
     }
 
     .side {
@@ -202,15 +212,88 @@
       background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,.74));
     }
 
-    .enemy-label {
+    .enemy-card-info {
       position: absolute;
       left: 20px;
       bottom: 18px;
       z-index: 1;
+      max-width: calc(100% - 40px);
+    }
+
+    .enemy-label {
+      margin: 0;
       font-size: clamp(34px, 6vw, 70px);
       font-weight: 900;
       font-style: italic;
+      line-height: .9;
       text-shadow: 0 3px 0 #000;
+    }
+
+    .enemy-card-spec {
+      margin-top: 8px;
+      color: #f1f1f1;
+      font-family: "Courier New", monospace;
+      font-size: clamp(10px, 1.4vw, 14px);
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-shadow: 0 2px 8px rgba(0,0,0,.78);
+    }
+
+    .punch-glove {
+      position: absolute;
+      z-index: 20;
+      left: 42%;
+      top: 47%;
+      width: clamp(72px, 12vw, 150px);
+      transform: translate(-50%, -50%) rotate(18deg) scale(.65);
+      opacity: 0;
+      pointer-events: none;
+      filter: drop-shadow(0 14px 18px rgba(0,0,0,.62)) drop-shadow(0 0 18px rgba(220,38,38,.42));
+    }
+
+    .punch-glove.active {
+      animation: glove-punch 360ms cubic-bezier(.16, .84, .34, 1) both;
+    }
+
+    .enemy-card.hit {
+      animation: enemy-hit 360ms ease both;
+    }
+
+    @keyframes glove-punch {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) rotate(18deg) scale(.55);
+      }
+
+      24% {
+        opacity: 1;
+      }
+
+      68% {
+        opacity: 1;
+        transform: translate(145%, -58%) rotate(-8deg) scale(1.08);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate(185%, -54%) rotate(-15deg) scale(.78);
+      }
+    }
+
+    @keyframes enemy-hit {
+      0%, 100% {
+        transform: translateX(0);
+        filter: none;
+      }
+
+      35% {
+        transform: translateX(8px);
+        filter: brightness(1.22) saturate(1.25);
+      }
+
+      62% {
+        transform: translateX(-4px);
+      }
     }
 
     .stats {
@@ -297,7 +380,8 @@
   <main class="screen">
     <section class="hud">
       <div class="health-panel">
-        <div class="name">YOU</div>
+        <div class="name" id="playerNameLabel">YOU</div>
+        <div class="fighter-spec" id="playerSpecLabel"></div>
         <div class="bar"><div class="fill" id="playerHealth"></div></div>
       </div>
 
@@ -308,11 +392,13 @@
 
       <div class="health-panel enemy">
         <div class="name" id="enemyName">ENEMY</div>
+        <div class="fighter-spec" id="enemySpecLabel"></div>
         <div class="bar"><div class="fill" id="enemyHealth"></div></div>
       </div>
     </section>
 
     <section class="arena">
+      <img class="punch-glove" id="punchGlove" src="images/boxing-glove.png" alt="">
       <div class="side">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="skeletonCanvas"></canvas>
@@ -324,7 +410,10 @@
       <div class="side">
         <div class="enemy-card">
           <img class="enemy-image" id="enemyImage" src="images/a-gong.png" alt="">
-          <div class="enemy-label" id="enemyLabel">ENEMY</div>
+          <div class="enemy-card-info">
+            <div class="enemy-label" id="enemyLabel">ENEMY</div>
+            <div class="enemy-card-spec" id="enemyCardSpecLabel"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -372,12 +461,48 @@
   <script>
     const fallbackEnemy = {
       name: "N'JIM",
-      role: 'Optimizer',
+      thaiName: 'จิมมี่ ศิษย์แม่คำปุ้น',
       image_path: 'images/a-gong.png',
-      health: 100
+      health: 100,
+      specs: 'Power: ★★★★★ | Speed: ★★★★☆'
     };
 
-    const enemy = JSON.parse(localStorage.getItem('selectedEnemy') || 'null') || fallbackEnemy;
+    function readJsonStorage(key) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || 'null');
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function fightConfigFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const enemyName = params.get('enemy');
+      const fighterName = params.get('fighter');
+
+      if (!enemyName && !fighterName) return null;
+
+      return {
+        fighter: {
+          name: fighterName || localStorage.getItem('selectedFighter') || 'CHAMP',
+          thaiName: params.get('fighterThai') || '',
+          specs: params.get('fighterSpecs') || '',
+          image_path: params.get('fighterImage') || 'images/a-gong.png'
+        },
+        enemy: {
+          name: enemyName || fallbackEnemy.name,
+          thaiName: params.get('enemyThai') || '',
+          image_path: params.get('enemyImage') || fallbackEnemy.image_path,
+          health: Number(params.get('enemyHealth')) || fallbackEnemy.health,
+          specs: params.get('enemySpecs') || fallbackEnemy.specs
+        }
+      };
+    }
+
+    const queryConfig = fightConfigFromQuery();
+    const storedEnemy = readJsonStorage('selectedEnemy');
+    const enemy = queryConfig ? queryConfig.enemy : (storedEnemy || fallbackEnemy);
+    const selectedPlayerFighter = queryConfig ? queryConfig.fighter : (readJsonStorage('selectedPlayerFighter') || null);
     const playerMaxHealth = 100;
     const enemyMaxHealth = Number(enemy.health) || 100;
     let playerHealth = playerMaxHealth;
@@ -398,6 +523,14 @@
     document.getElementById('enemyName').textContent = enemy.name;
     document.getElementById('enemyLabel').textContent = enemy.name;
     document.getElementById('enemyImage').src = enemy.image_path || fallbackEnemy.image_path;
+    document.getElementById('playerNameLabel').textContent =
+      selectedPlayerFighter ? selectedPlayerFighter.name : 'YOU';
+    document.getElementById('playerSpecLabel').textContent =
+      selectedPlayerFighter ? (selectedPlayerFighter.specs || selectedPlayerFighter.thaiName || '') : '';
+    document.getElementById('enemySpecLabel').textContent =
+      [enemy.thaiName, enemy.specs || fallbackEnemy.specs].filter(Boolean).join(' · ');
+    document.getElementById('enemyCardSpecLabel').textContent =
+      enemy.specs || fallbackEnemy.specs;
 
     function setHealth() {
       document.getElementById('playerHealth').style.width =
@@ -531,6 +664,17 @@
       });
     }
 
+    function playPunchAnimation() {
+      const glove = document.getElementById('punchGlove');
+      const enemyCard = document.querySelector('.enemy-card');
+
+      glove.classList.remove('active');
+      enemyCard.classList.remove('hit');
+      void glove.offsetWidth;
+      glove.classList.add('active');
+      enemyCard.classList.add('hit');
+    }
+
     function applyPunch(score, details, metrics) {
       const safeScore = Number.isFinite(Number(score)) ? Number(score) : 0;
       const damage = Math.max(1, Math.round(safeScore / 10));
@@ -546,6 +690,7 @@
       document.getElementById('lastScore').textContent = Math.round(safeScore);
       updateFullScoring(details);
       setHealth();
+      playPunchAnimation();
 
       if (enemyHealth <= 0) {
         finishFight();

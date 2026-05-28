@@ -1,224 +1,765 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mode Selection</title>
+  <title>Select Mode</title>
   <style>
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.055);
+      --panel-strong: rgba(255, 255, 255, 0.085);
+      --line: rgba(255, 255, 255, 0.11);
+      --red: #dc2626;
+      --red-soft: rgba(220, 38, 38, 0.22);
+      --amber: #f59e0b;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+      --text: #ffffff;
     }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: #fff;
-      color: #050505;
+      background: var(--bg);
+      color: var(--text);
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    .screen {
-      width: 100vw;
-      min-height: 100vh;
-      padding: clamp(28px, 5vh, 44px) clamp(26px, 6vw, 56px) 48px;
-      background: #fff;
-      position: relative;
+    button {
+      font: inherit;
     }
 
-    .back-button {
-      position: absolute;
-      top: 12px;
-      left: 14px;
-      padding: 4px 10px;
-      border: 2px solid #0059ff;
-      background: #ff3a1f;
-      color: #000;
-      font-weight: 900;
+    .screen {
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 75% 18%, rgba(220, 38, 38, 0.13), transparent 30%),
+        #050505;
+    }
+
+    .header {
+      width: 100%;
+      min-height: 72px;
+      padding: 14px clamp(18px, 4vw, 32px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(14px);
+      position: relative;
+      z-index: 4;
+    }
+
+    .nav-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 15px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .nav-button svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 180ms ease;
+    }
+
+    .nav-button:hover {
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.48);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    .nav-button:hover svg {
+      transform: translateX(-3px);
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .brand span,
+    .red-glow {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(220, 38, 38, 0.52);
+    }
+
+    .user-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .stat-pill {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.055);
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .stat-pill.amber {
+      border-color: rgba(245, 158, 11, 0.24);
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.08);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .stat-value {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .coin-value {
+      color: #fbbf24;
+      font-family: "Courier New", monospace;
+    }
+
+    .coin-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--amber);
+      animation: coin-spin 6s linear infinite;
+    }
+
+    .main {
+      width: min(100%, 1280px);
+      flex: 1;
+      margin: 0 auto;
+      padding: clamp(20px, 4vw, 36px);
+      display: flex;
+      align-items: stretch;
+      gap: clamp(22px, 4vw, 36px);
+      position: relative;
+      z-index: 2;
+    }
+
+    .mode-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 30px;
+      min-width: 0;
+    }
+
+    .section-kicker {
+      margin: 0 0 8px;
+      color: #71717a;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.36em;
+      text-transform: uppercase;
     }
 
     h1 {
-      margin: 0 0 12px;
-      font-size: clamp(34px, 5vw, 38px);
-      font-weight: 400;
+      margin: 0;
+      font-size: clamp(32px, 4vw, 46px);
+      font-weight: 900;
+      font-style: italic;
       line-height: 1;
       letter-spacing: 0;
-    }
-
-    .section-label {
-      width: 240px;
-      height: 30px;
-      display: grid;
-      place-items: center;
-      margin-bottom: 20px;
-      border-radius: 10px;
-      background: #00f334;
-      font-size: 20px;
+      text-transform: uppercase;
     }
 
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(150px, 1fr));
-      align-items: start;
-      gap: 56px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 44px rgba(0, 0, 0, 0.28);
+      position: relative;
+      overflow: hidden;
     }
 
     .mode-card {
-      min-width: 0;
-      text-align: center;
-    }
-
-    .mode-art {
-      width: 126px;
-      height: 104px;
-      margin: 0 auto 10px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .mode-art img {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: contain;
-    }
-
-    .mode-button {
-      width: 182px;
-      max-width: 100%;
-      height: 30px;
-      border: 0;
-      border-radius: 9px;
-      background: #00f334;
-      color: #050505;
-      font: inherit;
-      font-size: 22px;
+      min-height: 220px;
+      padding: 24px;
       cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
     }
 
-    .mode-button:disabled {
-      background: #d5d5d5;
-      color: #0b0b0b;
-      cursor: default;
+    .mode-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--red);
+      box-shadow: 0 0 28px rgba(220, 38, 38, 0.24), 0 18px 44px rgba(0, 0, 0, 0.32);
     }
 
-    .caption {
-      min-height: 54px;
-      margin-top: 4px;
-      font-size: 20px;
+    .card-bg,
+    .card-shade {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .card-bg {
+      opacity: 0.12;
+      background-size: cover;
+      background-position: center;
+      transition: transform 900ms ease;
+    }
+
+    .mode-card:hover .card-bg {
+      transform: scale(1.12);
+    }
+
+    .card-shade {
+      z-index: 1;
+      background: linear-gradient(0deg, #050505 0%, rgba(5, 5, 5, 0.92) 52%, rgba(5, 5, 5, 0.35) 100%);
+    }
+
+    .card-top,
+    .card-copy {
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 6px;
+      padding: 6px 9px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .tag.green {
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+    }
+
+    .tag.red {
+      background: rgba(220, 38, 38, 0.1);
+      color: #f87171;
+    }
+
+    .tag.gold {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+    }
+
+    .tag svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--red);
+      display: grid;
+      place-items: center;
+      transition: color 180ms ease, background 180ms ease;
+    }
+
+    .card-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .mode-card:hover .card-icon {
+      color: #fff;
+      background: var(--red);
+    }
+
+    .micro {
+      color: #ef4444;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 4px 0;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .description {
+      margin: 0;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 300;
+      line-height: 1.45;
+    }
+
+    .enter {
+      margin-top: 14px;
+      color: #ef4444;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: transform 180ms ease;
+    }
+
+    .mode-card:hover .enter {
+      transform: translateX(4px);
+    }
+
+    .other-block {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .other-title {
+      margin: 0;
+      color: var(--dim);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-style: italic;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .other-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .small-panel {
+      min-height: 76px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #a1a1aa;
+      opacity: 0.64;
+    }
+
+    .small-icon {
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.055);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .small-icon svg {
+      width: 18px;
+      height: 18px;
+      color: #71717a;
+    }
+
+    h3 {
+      margin: 0 0 4px;
+      color: #d4d4d8;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .small-panel p {
+      margin: 0;
+      color: #71717a;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
       line-height: 1.25;
     }
 
-    .divider {
-      height: 2px;
-      margin: 24px -22px 44px;
-      background: #a8a8a8;
+    .small-panel .red-note {
+      color: #ef4444;
+      font-weight: 900;
     }
 
-    .casual-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(150px, 1fr));
-      gap: 54px;
-      align-items: start;
-      text-align: center;
+    .showcase {
+      width: 34%;
+      min-width: 320px;
+      border-radius: 24px;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      box-shadow: 0 0 54px rgba(0, 0, 0, 0.78);
     }
 
-    .coming-soon {
-      width: 240px;
-      max-width: 100%;
-      min-height: 84px;
-      margin: 0 auto;
-      border-radius: 10px;
-      background: #d5d5d5;
-      display: grid;
-      place-items: center;
-      font-size: 21px;
-      line-height: 1.2;
+    .showcase img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      filter: brightness(0.94) contrast(1.08);
+      transform: scale(1.03);
     }
 
-    @media (max-width: 720px) {
-      .screen {
-        padding: 26px 18px 38px;
+    .showcase-copy {
+      position: absolute;
+      inset: auto 0 0;
+      padding: 86px 24px 24px;
+      background: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.78) 46%, transparent 100%);
+    }
+
+    .showcase-copy span {
+      color: #ef4444;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .showcase-copy h4 {
+      margin: 8px 0 6px;
+      font-size: 22px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .showcase-copy p {
+      margin: 0;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 300;
+      line-height: 1.45;
+    }
+
+    footer {
+      padding: 15px clamp(18px, 4vw, 32px);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: #71717a;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+    }
+
+    @keyframes coin-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1020px) {
+      .showcase {
+        display: none;
       }
 
-      .mode-grid,
-      .casual-row {
+      .mode-grid {
         grid-template-columns: 1fr;
-        gap: 28px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .header {
+        align-items: stretch;
+        flex-wrap: wrap;
       }
 
-      .section-label {
+      .brand {
+        order: -1;
         width: 100%;
+        text-align: center;
       }
 
-      .divider {
-        margin: 30px 0;
+      .nav-button {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .user-stats {
+        flex: 2;
+        justify-content: flex-end;
+      }
+
+      .stat-pill {
+        padding: 0 10px;
+      }
+
+      .stat-pill.amber {
+        display: none;
+      }
+
+      .main {
+        padding: 22px 16px;
+      }
+
+      .other-grid {
+        grid-template-columns: 1fr;
+      }
+
+      footer {
+        display: none;
       }
     }
   </style>
 </head>
+
 <body>
-  <main class="screen">
-    <button class="back-button" id="backButton" type="button">back</button>
-    <h1>Mode Selection</h1>
-    <div class="section-label">Training Mode</div>
+  <main id="select-mode" class="screen">
+    <header class="header">
+      <button class="nav-button" id="backButton" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 19-7-7 7-7" />
+          <path d="M19 12H5" />
+        </svg>
+        <span>Back</span>
+      </button>
 
-    <section class="mode-grid" aria-label="Training modes">
-      <article class="mode-card">
-        <div class="mode-art practice-art" aria-hidden="true">
-          <img src="images/image%2032.png" alt="">
-        </div>
-        <button class="mode-button" id="practiceButton" type="button">Practice</button>
-        <div class="caption">ฝึกท่าทาง ให้ถูกต้อง</div>
-      </article>
+      <div class="brand">Boxing With <span>Ar Gong</span></div>
 
-      <article class="mode-card">
-        <div class="mode-art fight-art" aria-hidden="true">
-          <img src="images/image%2033.png" alt="">
+      <div class="user-stats">
+        <div class="stat-pill">
+          <span class="stat-label">Champ:</span>
+          <span class="stat-value" id="champName">CHAMP</span>
         </div>
-        <button class="mode-button" id="fightModeButton" type="button">Fight mode</button>
-        <div class="caption">ออกกำลังกาย</div>
-      </article>
+        <div class="stat-pill amber">
+          <svg class="coin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" />
+            <path d="M9.5 9.5c.7-.7 1.5-1 2.5-1 1.7 0 3 1 3 2.4 0 1.6-1.4 2.3-3 2.3h-1" />
+            <path d="M12 16v.1" />
+          </svg>
+          <span class="stat-label">Coins:</span>
+          <span class="stat-value coin-value" id="coinCount">1,200</span>
+        </div>
+      </div>
+    </header>
 
-      <article class="mode-card">
-        <div class="mode-art board-art" aria-hidden="true">
-          <img src="images/image%2034.png" alt="">
+    <section class="main">
+      <div class="mode-column">
+        <div>
+          <p class="section-kicker">/ Mode Selection /</p>
+          <h1>Select Your <span class="red-glow">Challenge</span></h1>
         </div>
-        <button class="mode-button" id="leaderboardButton" type="button">Leader Board</button>
-        <div class="caption">ดูคะแนนของคุณ</div>
-      </article>
+
+        <section class="mode-grid" aria-label="Primary modes">
+          <article class="panel mode-card" id="practiceCard" tabindex="0" role="button" aria-label="Practice mode">
+            <div class="card-bg" style="background-image: url('images/image%2032.png');"></div>
+            <div class="card-shade"></div>
+            <div class="card-top">
+              <span class="tag green">Training Mode</span>
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </div>
+            <div class="card-copy">
+              <div class="micro">Focus Active</div>
+              <h2>Practice</h2>
+              <p class="description">ฝึกท่าทาง และออกหมัดให้ถูกต้อง</p>
+              <div class="enter">Enter Gym &rarr;</div>
+            </div>
+          </article>
+
+          <article class="panel mode-card" id="fightModeCard" tabindex="0" role="button" aria-label="Fight mode">
+            <div class="card-bg" style="background-image: url('images/image%2033.png');"></div>
+            <div class="card-shade"></div>
+            <div class="card-top">
+              <span class="tag red">Active Contest</span>
+              <span class="tag">Fight</span>
+            </div>
+            <div class="card-copy">
+              <div class="micro">Unleash Fury</div>
+              <h2>Fight Mode</h2>
+              <p class="description">เลือกบทบาทของคุณท้าประลองสังเวียนเด่น</p>
+              <div class="enter">Challenge Retro &rarr;</div>
+            </div>
+          </article>
+
+          <article class="panel mode-card" id="leaderboardCard" tabindex="0" role="button" aria-label="Leaderboard">
+            <div class="card-bg" style="background-image: url('images/image%2034.png');"></div>
+            <div class="card-shade"></div>
+            <div class="card-top">
+              <span class="tag gold">Global Stats</span>
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 21h8" />
+                  <path d="M12 17v4" />
+                  <path d="M7 4h10v6a5 5 0 0 1-10 0V4Z" />
+                  <path d="M5 5H3v3a4 4 0 0 0 4 4" />
+                  <path d="M19 5h2v3a4 4 0 0 1-4 4" />
+                </svg>
+              </span>
+            </div>
+            <div class="card-copy">
+              <div class="micro">Rank Check</div>
+              <h2>Leader Board</h2>
+              <p class="description">ดูอันดับคะแนนล่าสุดจากผู้เล่นทั้งหมด</p>
+              <div class="enter">View Ranking &rarr;</div>
+            </div>
+          </article>
+        </section>
+
+        <section class="other-block" aria-label="Other modes">
+          <p class="other-title">Other Modes</p>
+          <div class="other-grid">
+            <article class="panel small-panel">
+              <div class="small-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <div>
+                <h3>Casual Mode</h3>
+                <p class="red-note">[ Coming Soon ]</p>
+              </div>
+            </article>
+
+            <article class="panel small-panel">
+              <div class="small-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div>
+                <h3>Play Online</h3>
+                <p>2,410 Players Live</p>
+              </div>
+            </article>
+
+            <article class="panel small-panel">
+              <div class="small-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                  <path d="M12 8v4" />
+                  <path d="M12 16h.01" />
+                </svg>
+              </div>
+              <div>
+                <h3>Ranking Mode</h3>
+                <p>Competitive Stakes</p>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <aside class="showcase" aria-label="Ar Gong showcase">
+        <img src="images/a-gong.png" alt="Boxing Grandmaster Ar Gong">
+        <div class="showcase-copy">
+          <span>Revolution Training System</span>
+          <h4>Ar Gong Approved</h4>
+          <p>"No pain no gain! Show me some spirit, kiddo."</p>
+        </div>
+      </aside>
     </section>
 
-    <div class="divider"></div>
-
-    <section class="casual-row" aria-label="Casual modes">
-      <div class="coming-soon">Casual Mode<br>[coming soon]</div>
-
-      <article>
-        <button class="mode-button" type="button" disabled>Play Online</button>
-        <div class="caption">เล่นกับเพื่อน</div>
-      </article>
-
-      <article>
-        <button class="mode-button" type="button" disabled>Ranking Mode</button>
-        <div class="caption">เล่นแบบจัดอันดับ</div>
-      </article>
-    </section>
+    <footer>
+      <div>Build v0.4.2-alpha</div>
+      <div>Boxing With Ar Gong &bull; Gym System</div>
+      <div>Design System: Sophisticated Dark</div>
+    </footer>
   </main>
 
   <script>
-    document.getElementById('practiceButton').addEventListener('click', () => {
+    const champName = localStorage.getItem('boxingPlayerName') || 'CHAMP';
+    const coins = Number(localStorage.getItem('boxingCoins') || '1200');
+
+    document.getElementById('champName').textContent = champName;
+    document.getElementById('coinCount').textContent =
+      Number.isFinite(coins) ? coins.toLocaleString() : '1,200';
+
+    function activateCard(element, callback) {
+      element.addEventListener('click', callback);
+      element.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          callback();
+        }
+      });
+    }
+
+    activateCard(document.getElementById('practiceCard'), () => {
       localStorage.setItem('boxingMode', 'practice');
-      fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
-      window.location.href = 'training.html';
+      window.location.href = 'training_mode.html';
     });
 
-    document.getElementById('fightModeButton').addEventListener('click', () => {
+    activateCard(document.getElementById('fightModeCard'), () => {
       localStorage.setItem('boxingMode', 'fight');
       window.location.href = 'fight_mode.html';
     });
 
-    document.getElementById('leaderboardButton').addEventListener('click', () => {
+    activateCard(document.getElementById('leaderboardCard'), () => {
       window.location.href = 'leaderboard.html';
     });
 
@@ -227,4 +768,5 @@
     });
   </script>
 </body>
+
 </html>

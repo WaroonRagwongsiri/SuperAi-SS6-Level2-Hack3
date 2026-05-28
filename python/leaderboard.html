@@ -5,108 +5,252 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leader Board</title>
   <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.06);
+      --line: rgba(255, 255, 255, 0.12);
+      --red: #dc2626;
+      --muted: #a1a1aa;
+      --amber: #f59e0b;
     }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: #ffefa8;
-      color: #050505;
+      background: var(--bg);
+      color: #fff;
       font-family: Arial, Helvetica, sans-serif;
     }
 
     .screen {
-      width: 100vw;
       min-height: 100vh;
-      padding: 8px 12px 28px;
+      padding: clamp(18px, 4vw, 34px);
+      background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 72% 18%, rgba(220,38,38,.16), transparent 34%),
+        radial-gradient(circle at 16% 80%, rgba(220,38,38,.1), transparent 34%),
+        #050505;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 28px;
     }
 
     .back {
-      position: fixed;
-      left: 14px;
-      top: 10px;
-      padding: 3px 10px;
-      border: 2px solid #0059ff;
-      background: #ff3a1f;
-      color: #000;
-      font-weight: 900;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255,255,255,.055);
+      color: var(--muted);
+      padding: 0 15px;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .back:hover {
+      color: #ef4444;
+      border-color: rgba(220,38,38,.48);
+      background: rgba(220,38,38,.08);
+    }
+
+    .title {
+      text-align: right;
+    }
+
+    .kicker {
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
     }
 
     h1 {
-      margin: 8px 0 8px;
-      text-align: center;
-      font-size: clamp(44px, 7vw, 62px);
-      font-weight: 400;
-      line-height: 1;
+      margin: 6px 0 0;
+      font-size: clamp(42px, 7vw, 76px);
+      font-weight: 900;
+      font-style: italic;
+      line-height: .9;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(220,38,38,.42);
+    }
+
+    .board {
+      width: min(100%, 920px);
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+      box-shadow: 0 24px 54px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+
+    .board-head {
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      background: rgba(0,0,0,.28);
+    }
+
+    .board-head span {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      color: #34d399;
     }
 
     table {
-      width: min(86vw, 520px);
-      margin: 0 auto;
+      width: 100%;
       border-collapse: collapse;
-      background: rgba(210, 207, 195, .72);
-      font-size: 16px;
-      font-weight: 900;
     }
 
     th,
     td {
-      border: 2px solid #111;
-      padding: 8px 12px;
-      text-align: center;
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.08);
     }
 
     th {
-      color: #4054ff;
-      font-size: 26px;
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      background: rgba(0,0,0,.24);
     }
 
-    @media (max-width: 520px) {
-      table {
-        width: 100%;
+    td {
+      color: #f4f4f5;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    td:first-child {
+      width: 86px;
+      color: #fbbf24;
+      font-family: "Courier New", monospace;
+    }
+
+    td:last-child {
+      text-align: right;
+      color: #ef4444;
+      font-style: italic;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 620px) {
+      .header {
+        align-items: stretch;
+        flex-direction: column;
       }
 
-      th {
-        font-size: 22px;
+      .title {
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 13px 12px;
+      }
+
+      td {
+        font-size: 15px;
       }
     }
   </style>
 </head>
 <body>
   <main class="screen">
-    <button class="back" id="backButton" type="button">back</button>
-    <h1>Leader Board</h1>
+    <header class="header">
+      <button class="back" id="backButton" type="button">Back</button>
+      <div class="title">
+        <div class="kicker">Global Stats</div>
+        <h1>Leader Board</h1>
+      </div>
+    </header>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Score</th>
-        </tr>
-      </thead>
-      <tbody id="leaderboardBody"></tbody>
-    </table>
+    <section class="board">
+      <div class="board-head">
+        <span>Top Fighters</span>
+        <span class="status" id="loadStatus">Loading</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+    </section>
   </main>
 
   <script>
     const body = document.getElementById('leaderboardBody');
+    const loadStatus = document.getElementById('loadStatus');
 
     function renderRows(rows) {
       body.innerHTML = '';
 
       if (!rows.length) {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="2">No scores yet</td>';
+        tr.innerHTML = '<td class="empty" colspan="3">No scores yet</td>';
         body.appendChild(tr);
         return;
       }
 
-      rows.forEach((row) => {
+      rows.forEach((row, index) => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${row.name}</td><td>${row.score}</td>`;
+        tr.innerHTML = `
+          <td>#${index + 1}</td>
+          <td>${row.name}</td>
+          <td>${row.score}</td>
+        `;
         body.appendChild(tr);
       });
     }
@@ -116,8 +260,10 @@
         const response = await fetch('/leaderboard-data', { cache: 'no-store' });
         const data = await response.json();
         renderRows(data.rows || []);
+        loadStatus.textContent = 'Live';
       } catch (e) {
         renderRows([]);
+        loadStatus.textContent = 'Offline';
       }
     }
 

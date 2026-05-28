@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practice Move</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.055);
+      --line: rgba(255, 255, 255, 0.11);
+      --red: #dc2626;
+      --amber: #f59e0b;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .screen {
+      min-height: 100vh;
+      padding: clamp(18px, 4vw, 34px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 70% 15%, rgba(220, 38, 38, 0.13), transparent 32%),
+        #050505;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .back-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 15px;
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .back-button:hover {
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.48);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    .back-button svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 180ms ease;
+    }
+
+    .back-button:hover svg {
+      transform: translateX(-3px);
+    }
+
+    .title-block {
+      text-align: center;
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 48px);
+      font-weight: 900;
+      font-style: italic;
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .red-glow {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(220, 38, 38, 0.55);
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: #71717a;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .gold-pill {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      white-space: nowrap;
+    }
+
+    .gold-pill svg {
+      width: 17px;
+      height: 17px;
+      color: var(--amber);
+    }
+
+    .gold-pill .label {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .gold-pill .value {
+      color: #fbbf24;
+      font-family: "Courier New", monospace;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .gold-pill .add {
+      width: 22px;
+      height: 22px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--amber);
+      color: #050505;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .tabs {
+      width: min(100%, 460px);
+      margin: 30px auto 26px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab {
+      flex: 1;
+      min-height: 46px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .tab:hover {
+      color: #d4d4d8;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .tab.active {
+      background: var(--red);
+      color: #fff;
+      font-style: italic;
+      box-shadow: 0 0 22px rgba(220, 38, 38, 0.25);
+    }
+
+    .move-section {
+      width: min(100%, 1280px);
+      margin: 0 auto;
+    }
+
+    .section-label {
+      margin: 0 0 20px;
+      border-left: 2px solid var(--red);
+      padding-left: 10px;
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .section-label.premium {
+      color: #71717a;
+      border-color: rgba(255, 255, 255, 0.11);
+    }
+
+    .moves-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .move-card {
+      min-height: 320px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      padding: 16px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+    }
+
+    .move-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(0deg, #050505 0%, rgba(5, 5, 5, 0.72) 44%, rgba(5, 5, 5, 0.22) 100%);
+      z-index: 0;
+    }
+
+    .move-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--red);
+      box-shadow: 0 20px 38px rgba(220, 38, 38, 0.1);
+    }
+
+    .move-card.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .move-card.locked:hover {
+      transform: none;
+      border-color: rgba(255, 255, 255, 0.06);
+      box-shadow: none;
+    }
+
+    .move-top,
+    .move-bottom {
+      position: relative;
+      z-index: 1;
+    }
+
+    .move-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(0, 0, 0, 0.78);
+      color: #d4d4d8;
+      padding: 6px 9px;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .badge.active {
+      border-color: rgba(220, 38, 38, 0.34);
+      background: rgba(220, 38, 38, 0.14);
+      color: #ef4444;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+
+    .badge.locked {
+      color: #71717a;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge.locked svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .move-title-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--red);
+      box-shadow: 0 0 14px rgba(220, 38, 38, 0.8);
+      flex: 0 0 auto;
+    }
+
+    h2 {
+      margin: 0;
+      color: #fff;
+      font-size: 25px;
+      font-weight: 900;
+      font-style: italic;
+      line-height: 0.95;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .premium-card h2 {
+      color: #a1a1aa;
+      font-size: 21px;
+    }
+
+    .move-subtitle {
+      margin: 8px 0 12px;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 300;
+    }
+
+    .move-action {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: transform 180ms ease;
+    }
+
+    .move-card:hover .move-action {
+      transform: translateX(4px);
+    }
+
+    .move-action svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .locked-note {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      color: #52525b;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-style: italic;
+    }
+
+    .price-row {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(251, 191, 36, 0.78);
+      font-size: 12px;
+    }
+
+    .price {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: "Courier New", monospace;
+      font-weight: 900;
+    }
+
+    .price svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .unlockable {
+      color: #52525b;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .footnote {
+      margin-top: 34px;
+      color: #52525b;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      line-height: 1.5;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .moves-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .back-button,
+      .gold-pill {
+        width: 100%;
+      }
+
+      .gold-pill {
+        justify-content: center;
+      }
+
+      .moves-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="practice-list" class="screen">
+    <div>
+      <header>
+        <button class="back-button" id="backButton" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 19-7-7 7-7" />
+            <path d="M19 12H5" />
+          </svg>
+          <span>Back</span>
+        </button>
+
+        <div class="title-block">
+          <h1>Practice <span class="red-glow">Move</span></h1>
+          <p class="subtitle">เลือกท่าที่ต้องการฝึกซ้อม (Select maneuvers)</p>
+        </div>
+
+        <div class="gold-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" />
+            <path d="M9.5 9.5c.7-.7 1.5-1 2.5-1 1.7 0 3 1 3 2.4 0 1.6-1.4 2.3-3 2.3h-1" />
+            <path d="M12 16v.1" />
+          </svg>
+          <span class="label">Your Gold:</span>
+          <span class="value" id="coinCount">1,200</span>
+          <button class="add" type="button" aria-label="Add coins">+</button>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Practice move tabs">
+        <button class="tab active" id="basicTab" type="button">Basic (ฟรี)</button>
+        <button class="tab" id="premiumTab" type="button">Premium (เสียเงิน)</button>
+      </nav>
+
+      <section class="move-section" id="basicPanel">
+        <p class="section-label">/ Basic Moves</p>
+        <div class="moves-grid">
+          <article class="move-card locked" style="background-image: url('images/image%2033.png');">
+            <div class="move-top">
+              <span class="badge">Basic</span>
+              <span class="badge locked">Blocked</span>
+            </div>
+            <div class="move-bottom">
+              <div class="move-title-row"><span class="dot"></span><h2>Jab</h2></div>
+              <p class="move-subtitle">หมัดตรง</p>
+              <div class="locked-note">Only CROSS is selectable</div>
+            </div>
+          </article>
+
+          <article class="move-card" id="crossCard" tabindex="0" role="button" aria-label="Start Cross practice" style="background-image: url('images/a-gong.png');">
+            <div class="move-top">
+              <span class="badge">Basic</span>
+              <span class="badge active">Active Demo</span>
+            </div>
+            <div class="move-bottom">
+              <div class="move-title-row"><span class="dot"></span><h2>Cross</h2></div>
+              <p class="move-subtitle">หมัดตรงสวน</p>
+              <div class="move-action">
+                <span>Start Practice</span>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M13.5 1.8c.8 2.8.1 4.7-1.2 6.2-.8.9-1.7 1.7-2.3 2.8-.7 1.2-.8 2.5-.2 3.9.6-1.2 1.4-2.2 2.5-3.1 1.8-1.5 3.5-3.2 3.7-6.1 3.1 2.1 4.9 5 4.9 8.1 0 4.4-3.6 8-8.5 8s-8.5-3.2-8.5-7.8c0-2.7 1.3-5.1 3.2-7.1.8 1.3 1.7 2 2.7 2.1.6-2.8 1.5-5 3.7-7Z" />
+                </svg>
+              </div>
+            </div>
+          </article>
+
+          <article class="move-card locked" style="background-image: url('images/image%2032.png');">
+            <div class="move-top">
+              <span class="badge">Basic</span>
+              <span class="badge locked">Blocked</span>
+            </div>
+            <div class="move-bottom">
+              <div class="move-title-row"><span class="dot"></span><h2>Hook</h2></div>
+              <p class="move-subtitle">หมัดตวัด</p>
+              <div class="locked-note">Only CROSS is selectable</div>
+            </div>
+          </article>
+
+          <article class="move-card locked" style="background-image: url('images/boxing-glove.png');">
+            <div class="move-top">
+              <span class="badge">Basic</span>
+              <span class="badge locked">Blocked</span>
+            </div>
+            <div class="move-bottom">
+              <div class="move-title-row"><span class="dot"></span><h2>Guard</h2></div>
+              <p class="move-subtitle">ตั้งการ์ด</p>
+              <div class="locked-note">Only CROSS is selectable</div>
+            </div>
+          </article>
+
+          <article class="move-card locked" style="background-image: url('images/image%2034.png');">
+            <div class="move-top">
+              <span class="badge">Basic</span>
+              <span class="badge locked">Blocked</span>
+            </div>
+            <div class="move-bottom">
+              <div class="move-title-row"><span class="dot"></span><h2>Slip</h2></div>
+              <p class="move-subtitle">หลบซ้าย - ขวา</p>
+              <div class="locked-note">Only CROSS is selectable</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="move-section hidden" id="premiumPanel">
+        <p class="section-label premium">/ Premium Moves</p>
+        <div class="moves-grid">
+          <article class="move-card premium-card locked" style="background-image: url('images/image%2032.png');">
+            <div class="move-top"><span class="badge">Premium</span><span class="badge locked">Locked</span></div>
+            <div class="move-bottom"><div class="move-title-row"><span class="dot"></span><h2>Tornado Kick</h2></div><p class="move-subtitle">เตะพายุ</p><div class="price-row"><span class="price">199</span><span class="unlockable">Unlockable</span></div></div>
+          </article>
+          <article class="move-card premium-card locked" style="background-image: url('images/image%2033.png');">
+            <div class="move-top"><span class="badge">Premium</span><span class="badge locked">Locked</span></div>
+            <div class="move-bottom"><div class="move-title-row"><span class="dot"></span><h2>Backflip Kick</h2></div><p class="move-subtitle">ตีลังกาเตะ</p><div class="price-row"><span class="price">199</span><span class="unlockable">Unlockable</span></div></div>
+          </article>
+          <article class="move-card premium-card locked" style="background-image: url('images/a-gong.png');">
+            <div class="move-top"><span class="badge">Premium</span><span class="badge locked">Locked</span></div>
+            <div class="move-bottom"><div class="move-title-row"><span class="dot"></span><h2>Diving Fist</h2></div><p class="move-subtitle">หมัดพุ่งทะลวง</p><div class="price-row"><span class="price">199</span><span class="unlockable">Unlockable</span></div></div>
+          </article>
+          <article class="move-card premium-card locked" style="background-image: url('images/boxing-glove.png');">
+            <div class="move-top"><span class="badge">Premium</span><span class="badge locked">Locked</span></div>
+            <div class="move-bottom"><div class="move-title-row"><span class="dot"></span><h2>Spinning Back Fist</h2></div><p class="move-subtitle">หมัดหมุนกลับหลัง</p><div class="price-row"><span class="price">199</span><span class="unlockable">Unlockable</span></div></div>
+          </article>
+          <article class="move-card premium-card locked" style="background-image: url('images/image%2034.png');">
+            <div class="move-top"><span class="badge">Premium</span><span class="badge locked">Locked</span></div>
+            <div class="move-bottom"><div class="move-title-row"><span class="dot"></span><h2>Death Roll</h2></div><p class="move-subtitle">ตีลังกาอัดนรก</p><div class="price-row"><span class="price">199</span><span class="unlockable">Unlockable</span></div></div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <div class="footnote">
+      <span>&bull; ท่าพื้นฐานสามารถฝึกได้ฟรี (Basic maneuvers are free of charge)</span>
+      <span>|</span>
+      <span>&bull; ท่า PREMIUM ต้องมีเหรียญเพื่อปลดล็อกใช้งาน (Premium moves require gold coins)</span>
+    </div>
+  </main>
+
+  <script>
+    const coins = Number(localStorage.getItem('boxingCoins') || '1200');
+    const basicTab = document.getElementById('basicTab');
+    const premiumTab = document.getElementById('premiumTab');
+    const basicPanel = document.getElementById('basicPanel');
+    const premiumPanel = document.getElementById('premiumPanel');
+    const crossCard = document.getElementById('crossCard');
+
+    document.getElementById('coinCount').textContent =
+      Number.isFinite(coins) ? coins.toLocaleString() : '1,200';
+
+    function setTab(tab) {
+      const isBasic = tab === 'basic';
+      basicTab.classList.toggle('active', isBasic);
+      premiumTab.classList.toggle('active', !isBasic);
+      basicPanel.classList.toggle('hidden', !isBasic);
+      premiumPanel.classList.toggle('hidden', isBasic);
+    }
+
+    function startCrossPractice() {
+      localStorage.setItem('practiceMove', 'cross');
+      localStorage.setItem('boxingMode', 'practice');
+      fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
+      window.location.href = 'training.html';
+    }
+
+    basicTab.addEventListener('click', () => setTab('basic'));
+    premiumTab.addEventListener('click', () => setTab('premium'));
+    crossCard.addEventListener('click', startCrossPractice);
+    crossCard.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        startCrossPractice();
+      }
+    });
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = 'mode.html';
+    });
+  </script>
+</body>
+
+</html>

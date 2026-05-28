@@ -5,116 +5,255 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fight Result</title>
   <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.06);
+      --line: rgba(255, 255, 255, 0.12);
+      --red: #dc2626;
+      --muted: #a1a1aa;
+      --amber: #f59e0b;
     }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: #fff;
-      color: #050505;
+      background: var(--bg);
+      color: #fff;
       font-family: Arial, Helvetica, sans-serif;
     }
 
     .screen {
-      width: 100vw;
       min-height: 100vh;
-      padding: 18px;
+      padding: clamp(18px, 4vw, 36px);
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      gap: 18px;
-      text-align: center;
+      gap: 22px;
+      background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 22% 18%, rgba(220,38,38,.18), transparent 34%),
+        radial-gradient(circle at 78% 74%, rgba(220,38,38,.1), transparent 34%),
+        #050505;
     }
 
-    .logo {
-      width: 144px;
-      height: 144px;
+    .result-shell {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .poster,
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+      box-shadow: 0 24px 54px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+
+    .poster {
+      min-height: 440px;
+      position: relative;
+    }
+
+    .poster img {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
-      border: 1px solid #ddd;
+      filter: brightness(.82) contrast(1.1);
     }
 
-    .result-lines {
-      display: grid;
-      gap: 12px;
-      font-size: clamp(24px, 4vw, 32px);
+    .poster::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(0deg, #050505 0%, rgba(5,5,5,.58) 48%, transparent 100%);
     }
 
-    .metrics-grid {
-      width: min(92vw, 760px);
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 10px;
+    .poster-copy {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      z-index: 1;
     }
 
-    .metric-card {
-      padding: 10px 12px;
-      border: 1px solid #222;
-      background: #f7f7f7;
-    }
-
-    .metric-card .label {
-      color: #555;
-      font-size: 13px;
+    .kicker {
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
       font-weight: 900;
+      letter-spacing: .18em;
       text-transform: uppercase;
     }
 
-    .metric-card .value {
-      margin-top: 4px;
-      color: #111;
-      font-size: 24px;
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(44px, 7vw, 78px);
       font-weight: 900;
+      font-style: italic;
+      line-height: .88;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(220,38,38,.42);
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .summary {
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card,
+    .metric-card {
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 12px;
+      background: rgba(0,0,0,.34);
+      padding: 14px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .value {
+      margin-top: 6px;
+      color: #fff;
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 900;
+      font-style: italic;
+      line-height: 1;
+    }
+
+    .value.red { color: #ef4444; }
+    .value.gold { color: #fbbf24; }
+
+    .metrics {
+      padding: 20px;
+    }
+
+    .metrics-title {
+      margin: 0 0 12px;
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .metric-card .value {
+      font-size: 24px;
     }
 
     .actions {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
-      gap: 22px;
+      gap: 12px;
     }
 
     .action {
-      min-width: 112px;
-      padding: 3px 8px;
-      border: 1px solid #222;
-      background: #fff;
-      color: #111;
-      font: inherit;
-      font-size: 24px;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.06);
+      color: #fff;
+      padding: 0 18px;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: .08em;
+      text-transform: uppercase;
       cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
 
-    .danger {
-      border-color: #ff1616;
-      color: #ff1616;
+    .action:hover {
+      transform: translateY(-2px);
+      border-color: var(--red);
+      background: rgba(220,38,38,.14);
     }
 
-    .purple {
-      border-color: #a861ff;
-      color: #8f2bff;
+    .action.primary {
+      border-color: rgba(220,38,38,.6);
+      background: #dc2626;
+      box-shadow: 0 0 22px rgba(220,38,38,.28);
+    }
+
+    @media (max-width: 780px) {
+      .result-shell { grid-template-columns: 1fr; }
+      .poster { min-height: 260px; }
+      .summary { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <main class="screen">
-    <img class="logo" src="images/a-gong.png" alt="">
+    <section class="result-shell">
+      <aside class="poster">
+        <img src="images/a-gong.png" alt="">
+        <div class="poster-copy">
+          <div class="kicker">Fight Complete</div>
+          <h1>Battle Result</h1>
+        </div>
+      </aside>
 
-    <section class="result-lines">
-      <div>เวลา: <span id="elapsedTime">0:00</span> นาที</div>
-      <div>จำนวนหมัด: <span id="punchCount">0</span> หมัด</div>
-      <div>คะแนนเฉลี่ย: <span id="averageScore">0</span> แต้ม</div>
-    </section>
+      <section class="content">
+        <section class="panel summary">
+          <div class="summary-card">
+            <div class="label">Time</div>
+            <div class="value" id="elapsedTime">0:00</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Punches</div>
+            <div class="value red" id="punchCount">0</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Average Score</div>
+            <div class="value gold" id="averageScore">0</div>
+          </div>
+        </section>
 
-    <section class="metrics-grid" id="scoreGrid"></section>
-    <section class="metrics-grid" id="metricGrid"></section>
+        <section class="panel metrics" id="scorePanel">
+          <h2 class="metrics-title">Score Breakdown</h2>
+          <div class="metrics-grid" id="scoreGrid"></div>
+        </section>
 
-    <section class="actions">
-      <button class="action danger" id="againButton" type="button">เล่นอีกครั้ง</button>
-      <button class="action" id="homeButton" type="button">กลับหน้าหลัก</button>
-      <button class="action purple" id="leaderboardButton" type="button">Leader Board</button>
+        <section class="panel metrics" id="metricPanel">
+          <h2 class="metrics-title">Motion Metrics</h2>
+          <div class="metrics-grid" id="metricGrid"></div>
+        </section>
+
+        <section class="actions">
+          <button class="action primary" id="againButton" type="button">Fight Again</button>
+          <button class="action" id="homeButton" type="button">Home</button>
+          <button class="action" id="leaderboardButton" type="button">Leaderboard</button>
+        </section>
+      </section>
     </section>
   </main>
 
@@ -137,12 +276,13 @@
       return key.replace(/_/g, ' ');
     }
 
-    function renderGrid(elementId, values, suffix = '') {
+    function renderGrid(elementId, panelId, values, suffix = '') {
       const grid = document.getElementById(elementId);
+      const panel = document.getElementById(panelId);
       const entries = Object.entries(values || {}).filter(([key]) => key !== 'duration');
 
       if (!entries.length) {
-        grid.style.display = 'none';
+        panel.style.display = 'none';
         return;
       }
 
@@ -161,8 +301,8 @@
       }).join('');
     }
 
-    renderGrid('scoreGrid', result.details, ' score');
-    renderGrid('metricGrid', result.metrics);
+    renderGrid('scoreGrid', 'scorePanel', result.details, ' score');
+    renderGrid('metricGrid', 'metricPanel', result.metrics);
 
     document.getElementById('againButton').addEventListener('click', () => {
       window.location.href = 'fight_mode.html';
