@@ -315,6 +315,55 @@
       transform: scale(1.3);
     }
 
+    .cross-status {
+      margin-top: 6px;
+      color: #d4d4d8;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cross-status.valid {
+      color: #3dff8f;
+    }
+
+    .cross-status.invalid {
+      color: #ff6b6b;
+    }
+
+    .threshold-control {
+      margin-top: 10px;
+      display: grid;
+      gap: 6px;
+      text-align: left;
+    }
+
+    .threshold-control label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #aaa;
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .threshold-control output {
+      color: #ffd400;
+      font-size: 12px;
+    }
+
+    .threshold-control input {
+      width: 100%;
+      accent-color: #ffd400;
+      cursor: pointer;
+    }
+
     /* Nano Data Box */
     .signal {
       width: 100%;
@@ -516,6 +565,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 
@@ -553,7 +603,14 @@
     <div class="scorebox">
       <div class="lbl">Punch Score</div>
       <div class="num" id="score">0</div>
-      <div class="cross-status" id="crossStatus">FORM: WAITING</div>
+      <div class="cross-status" id="crossStatus">ท่าต่อย: รอเริ่ม</div>
+      <div class="threshold-control">
+        <label for="fistThresholdSlider">
+          <span>Fist threshold</span>
+          <output id="fistThresholdValue">32%</output>
+        </label>
+        <input id="fistThresholdSlider" type="range" min="20" max="60" step="1" value="32">
+      </div>
     </div>
   </div>
 
@@ -620,6 +677,7 @@
     let countdownAnchorValue = 0;
     let countdownAnchorTime = Date.now();
     let poseTracker = null;
+    let handTracker = null;
     let poseBusy = false;
     let trainingStartTime = 0;
     let lastPunchId = 0;
@@ -632,8 +690,26 @@
     let latestInvalidPunch = false;
     let currentPunchPhase = false;
     let punchPoseSeries = [];
+    let latestHandPunchSample = null;
     let lastCompletedInvalidPunch = false;
+    let hasCompletedFormEval = false;
     let lastCompletedCrossEval = { isCross: true, reason: 'good' };
+    let realPunchFistRatioPercent = Number(localStorage.getItem('realPunchFistRatioPercent')) || 32;
+
+    function syncFistThresholdControl() {
+      const slider = document.getElementById('fistThresholdSlider');
+      const value = document.getElementById('fistThresholdValue');
+      slider.value = String(realPunchFistRatioPercent);
+      value.textContent = `${realPunchFistRatioPercent}%`;
+    }
+
+    document.getElementById('fistThresholdSlider').addEventListener('input', (event) => {
+      realPunchFistRatioPercent = Number(event.target.value) || 32;
+      localStorage.setItem('realPunchFistRatioPercent', String(realPunchFistRatioPercent));
+      syncFistThresholdControl();
+      updateCrossStatus();
+    });
+    syncFistThresholdControl();
 
     document.getElementById('backButton').addEventListener('click', () => {
       window.location.href = 'mode.html';
@@ -687,6 +763,29 @@
         lineWidth: 2,
         radius: 3
       });
+
+      if (latestHandPunchSample?.box) {
+        const box = latestHandPunchSample.box;
+        ctx.save();
+        ctx.strokeStyle = latestHandPunchSample.fistRatioPercent >= realPunchFistRatioPercent ? '#ffd400' : '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(
+          box.minX * canvas.width,
+          box.minY * canvas.height,
+          (box.maxX - box.minX) * canvas.width,
+          (box.maxY - box.minY) * canvas.height
+        );
+        ctx.restore();
+      }
+    }
+
+    function getCookie(name) {
+      return document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(`${name}=`))
+        ?.split('=')
+        .slice(1)
+        .join('=') || '';
     }
 
     function getLandmark(results, index) {
@@ -725,8 +824,71 @@
         z: wrist.z,
         horizontalOffset,
         verticalOffset,
-        depthReach
+        depthReach,
+        fistRatioPercent: latestHandPunchSample?.fistRatioPercent || 0,
+        estimatedFistWidthM: latestHandPunchSample?.estimatedFistWidthM || 0
       };
+    }
+
+    function makeHandPunchSample(handResults, poseResults) {
+      if (!handResults.multiHandLandmarks?.length || !poseResults?.poseLandmarks) return null;
+
+      const leftShoulder = getLandmark(poseResults, POSE_LANDMARKS.LEFT_SHOULDER);
+      const rightShoulder = getLandmark(poseResults, POSE_LANDMARKS.RIGHT_SHOULDER);
+      if (!hasUsableLandmark(leftShoulder) || !hasUsableLandmark(rightShoulder)) return null;
+
+      const videoRect = document.getElementById('webcam').getBoundingClientRect();
+      const shoulderPx = Math.hypot(
+        (leftShoulder.x - rightShoulder.x) * videoRect.width,
+        (leftShoulder.y - rightShoulder.y) * videoRect.height
+      );
+      if (!(shoulderPx > 0)) return null;
+
+      let largestBox = null;
+      let largestSizePx = 0;
+
+      handResults.multiHandLandmarks.forEach((landmarks) => {
+        const xs = landmarks.map((point) => point.x);
+        const ys = landmarks.map((point) => point.y);
+        const box = {
+          minX: Math.max(0, Math.min(...xs)),
+          minY: Math.max(0, Math.min(...ys)),
+          maxX: Math.min(1, Math.max(...xs)),
+          maxY: Math.min(1, Math.max(...ys))
+        };
+        const widthPx = (box.maxX - box.minX) * videoRect.width;
+        const heightPx = (box.maxY - box.minY) * videoRect.height;
+        const sizePx = Math.max(widthPx, heightPx);
+
+        if (sizePx > largestSizePx) {
+          largestSizePx = sizePx;
+          largestBox = box;
+        }
+      });
+
+      if (!largestBox || !(largestSizePx > 0)) return null;
+
+      const shoulderWidthM = Number(getCookie('poseShoulderWidthM')) || 0.40;
+      const focalLengthPx = Number(getCookie('poseFocalLengthPx')) || 0;
+      const estimatedDistanceM = focalLengthPx > 0
+        ? (shoulderWidthM * focalLengthPx) / shoulderPx
+        : Number(getCookie('poseCalibrationDistanceM')) || 1.50;
+      const estimatedFistWidthM = focalLengthPx > 0
+        ? (largestSizePx * estimatedDistanceM) / focalLengthPx
+        : (largestSizePx / shoulderPx) * shoulderWidthM;
+
+      return {
+        box: largestBox,
+        fistSizePx: largestSizePx,
+        shoulderPx,
+        estimatedDistanceM,
+        estimatedFistWidthM,
+        fistRatioPercent: (estimatedFistWidthM / shoulderWidthM) * 100
+      };
+    }
+
+    function onHandResults(results) {
+      latestHandPunchSample = makeHandPunchSample(results, latestPoseResult);
     }
 
     function addPunchPoseSample(results) {
@@ -761,13 +923,24 @@
       const yRange = Math.max(...armSamples.map((sample) => sample.y)) - Math.min(...armSamples.map((sample) => sample.y));
       const xDrift = Math.abs(peak.x - start.x);
       const yDrift = Math.abs(peak.y - start.y);
+      const maxFistRatioPercent = Math.max(...armSamples.map((sample) => sample.fistRatioPercent || 0));
 
       const isStraightPath = xRange <= 0.42 && yRange <= 0.32 && xDrift <= 0.28 && yDrift <= 0.24;
+      const isRealPunch = maxFistRatioPercent >= realPunchFistRatioPercent;
 
-      const isCross = isStraightPath;
-      const reason = isStraightPath ? 'good' : 'punch straight';
+      const isCross = isStraightPath && isRealPunch;
+      const reason = isCross
+        ? 'real punch'
+        : (isStraightPath
+          ? (maxFistRatioPercent > 0 ? 'punch forward' : 'show fist')
+          : 'punch straight');
+      const label = isCross
+        ? 'ท่าต่อย: ถูกท่า'
+        : (isStraightPath
+          ? (maxFistRatioPercent > 0 ? 'ท่าต่อย: ผิดท่า - ต่อยให้สุด' : 'ท่าต่อย: ผิดท่า - ให้เห็นหมัด')
+          : 'ท่าต่อย: ผิดท่า - ต่อยให้ตรง');
 
-      return { isCross, reason, motionGain: forwardGain };
+      return { isCross, reason, label, motionGain: forwardGain, fistRatioPercent: maxFistRatioPercent };
     }
 
     function evaluateCrossPunchSeries(samples) {
@@ -782,17 +955,24 @@
     function updateCrossStatus() {
       const statusEl = document.getElementById('crossStatus');
       if (!currentPunchPhase) {
-        statusEl.textContent = lastCompletedInvalidPunch
-          ? `FORM: ${lastCompletedCrossEval.reason.toUpperCase()}`
-          : 'FORM: WAITING';
-        statusEl.classList.toggle('valid', false);
-        statusEl.classList.toggle('invalid', lastCompletedInvalidPunch);
+        const completedGood = hasCompletedFormEval && lastCompletedCrossEval?.isCross;
+        statusEl.textContent = hasCompletedFormEval && lastCompletedInvalidPunch
+          ? lastCompletedCrossEval.label
+          : (completedGood ? 'ท่าต่อย: ถูกท่า' : 'ท่าต่อย: รอเริ่ม');
+        statusEl.classList.toggle('valid', completedGood);
+        statusEl.classList.toggle('invalid', hasCompletedFormEval && lastCompletedInvalidPunch);
         return;
       }
 
       latestInvalidPunch = false;
-      statusEl.textContent = punchPoseSeries.length > 0 ? 'FORM: TRACKING' : 'FORM: NO POSE';
-      statusEl.classList.remove('valid', 'invalid');
+      const fistPercent = latestHandPunchSample?.fistRatioPercent || 0;
+      statusEl.textContent = punchPoseSeries.length > 0
+        ? (fistPercent >= realPunchFistRatioPercent
+          ? `ท่าต่อย: ถูกท่า ${Math.round(fistPercent)}%`
+          : `ท่าต่อย: กำลังตรวจ ${Math.round(fistPercent)}%`)
+        : 'ท่าต่อย: ไม่เห็นท่า';
+      statusEl.classList.toggle('valid', fistPercent >= realPunchFistRatioPercent);
+      statusEl.classList.remove('invalid');
     }
 
     function onPoseResults(results) {
@@ -819,12 +999,28 @@
       });
       poseTracker.onResults(onPoseResults);
 
+      if (typeof Hands === 'function') {
+        handTracker = new Hands({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        handTracker.setOptions({
+          maxNumHands: 2,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.45,
+          minTrackingConfidence: 0.45
+        });
+        handTracker.onResults(onHandResults);
+      }
+
       async function frame() {
         resizeSkeletonCanvas(video);
 
         if (!poseBusy && video.readyState >= 2) {
           poseBusy = true;
           await poseTracker.send({ image: video }).catch(() => {});
+          if (handTracker) {
+            await handTracker.send({ image: video }).catch(() => {});
+          }
           poseBusy = false;
         }
 
@@ -835,6 +1031,19 @@
     }
 
     function updateScore(newScore) {
+      const scoreOverlay = document.getElementById('score');
+      
+      // ถ้าเป็น 'INVALID' แสดงข้อความแทน
+      if (newScore === 'INVALID') {
+        currentScore = 'INVALID';
+        scoreOverlay.textContent = 'ผิดท่า';
+        scoreOverlay.style.color = '#ff6b6b';
+        scoreOverlay.style.fontSize = '32px';
+        document.getElementById('score-inline').textContent = 'ผิดท่า';
+        return;
+      }
+      
+      // กรณีปกติ (ท่าถูก)
       const safeScore = Number.isFinite(Number(newScore)) ? Number(newScore) : 0;
       const clampedScore = Math.max(0, Math.min(safeScore, maxScore));
       const roundedScore = Math.round(clampedScore);
@@ -843,8 +1052,9 @@
 
       currentScore = roundedScore;
 
-      const scoreOverlay = document.getElementById('score');
       scoreOverlay.textContent = currentScore;
+      scoreOverlay.style.color = '#ffd400';
+      scoreOverlay.style.fontSize = '56px';
 
       scoreOverlay.classList.remove('bump');
       void scoreOverlay.offsetWidth;
@@ -892,12 +1102,15 @@
 
       if (!currentPunchPhase && isPunching) {
         punchPoseSeries = [];
+        latestHandPunchSample = null;
         latestInvalidPunch = false;
         lastCompletedInvalidPunch = false;
+        hasCompletedFormEval = false;
         lastCompletedCrossEval = { isCross: true, reason: 'good' };
       } else if (currentPunchPhase && !isPunching) {
         lastCompletedCrossEval = evaluateCrossPunchSeries(punchPoseSeries);
         lastCompletedInvalidPunch = !lastCompletedCrossEval.isCross;
+        hasCompletedFormEval = true;
         latestInvalidPunch = lastCompletedInvalidPunch;
       }
 
@@ -993,7 +1206,10 @@
         } else if (punchId > lastPunchId) {
           lastPunchId = punchId;
           punchCount += 1;
-          scoreTotal += displayedScore;
+          // ✅ เพิ่มเงื่อนไข: ถ้าท่าถูกถึงจะบวกคะแนน
+          if (displayedScore !== 'INVALID' && Number.isFinite(Number(displayedScore))) {
+            scoreTotal += displayedScore;
+          }
         }
 
         renderDetails(d.details);
@@ -1008,7 +1224,7 @@
       const rawScore = Number.isFinite(Number(data.latest_score)) ? Number(data.latest_score) : 0;
       const isBadForm = state === 'punching' ? latestInvalidPunch : lastCompletedInvalidPunch;
       if (isBadForm) {
-        return Math.min(rawScore, 100);
+        return 'INVALID';
       }
       return rawScore;
     }
