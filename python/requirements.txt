@@ -4,3 +4,4 @@ numpy
 fastapi
 uvicorn
 scikit-learn
+torch
