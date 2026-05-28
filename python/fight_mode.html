@@ -271,8 +271,8 @@
     }
 
     .fighter-card {
-      width: 210px;
-      height: 260px;
+      width: 320px;
+      height: 520px;
       flex: 0 0 auto;
       scroll-snap-align: start;
       border: 1px solid rgba(127, 29, 29, 0.42);
@@ -316,7 +316,6 @@
       opacity: 1;
     }
 
-    .fighter-card::before,
     .fighter-card::after {
       content: "";
       position: absolute;
@@ -324,30 +323,15 @@
       pointer-events: none;
     }
 
-    .fighter-card::before {
-      z-index: 0;
-      background-size: cover;
-      background-position: center;
-      opacity: 0.22;
-      transform: scale(1.02);
-    }
-
-    .fighter-card.selected::before {
-      opacity: 0.42;
-      transform: scale(1.12);
-    }
-
     .fighter-card::after {
       z-index: 1;
-      background: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.82) 48%, rgba(0, 0, 0, 0.16) 100%);
-    }
-
-    .fighter-card[data-image]::before {
-      background-image: var(--fighter-image);
+      background: linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0.68) 24%, rgba(0, 0, 0, 0.02) 100%);
     }
 
     .fighter-top,
-    .fighter-bottom {
+    .fighter-bottom,
+    .fighter-portrait-wrap,
+    .fighter-portrait {
       position: relative;
       z-index: 2;
     }
@@ -357,6 +341,26 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 8px;
+    }
+
+    .fighter-portrait-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    .fighter-portrait {
+      width: min(116%, 430px);
+      height: 100%;
+      max-width: none;
+      object-fit: cover;
+      object-position: center top;
+      transform: scale(1.16);
+      transform-origin: center center;
+      filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.72));
     }
 
     .fighter-tag {
@@ -543,9 +547,24 @@
     }
 
     @media (max-width: 760px) {
+      .screen {
+        padding: 10px;
+        overflow-x: hidden;
+      }
+
       header {
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
+        padding-bottom: 8px;
+      }
+
+      h1 {
+        font-size: clamp(30px, 12vw, 42px);
+      }
+
+      .subtitle {
+        font-size: 9px;
       }
 
       .back-button,
@@ -558,12 +577,73 @@
       }
 
       .carousel-shell {
-        gap: 4px;
+        position: relative;
+        gap: 0;
+      }
+
+      .carousel-body {
+        width: 100%;
+      }
+
+      .carousel-head {
+        padding: 0 2px;
+      }
+
+      .arrow-button {
+        position: absolute;
+        top: 52%;
+        z-index: 5;
+        width: 38px;
+        height: 54px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.62);
+        transform: translateY(-50%);
+      }
+
+      .arrow-button:hover {
+        transform: translateY(-50%) scale(1.04);
+      }
+
+      #prevFighterButton {
+        left: 0;
+      }
+
+      #nextFighterButton {
+        right: 0;
+      }
+
+      .slider {
+        gap: 10px;
+        padding: 8px 0 12px;
       }
 
       .fighter-card {
-        width: 170px;
-        height: 220px;
+        width: calc(100vw - 20px);
+        height: min(68vh, 620px);
+        min-height: 480px;
+        padding: 12px;
+        scroll-snap-align: center;
+      }
+
+      .fighter-card.selected {
+        transform: none;
+      }
+
+      .fighter-portrait {
+        width: 128%;
+        transform: scale(1.22);
+      }
+
+      .start-row {
+        padding-top: 8px;
+      }
+
+      .start-button {
+        min-height: 52px;
+        border-radius: 14px;
+        padding: 0 28px;
+        font-size: 16px;
       }
 
       footer {
@@ -656,19 +736,104 @@
     const glove = 'images/boxing-glove.png';
 
     const basicFighters = [
-      { id: 'b1', name: 'AMA', thaiName: 'อาม่าสายบวก', image_path: imageA, specs: 'Power: ★★★★☆ | Speed: ★★★☆☆', power: 4, health: 140 },
-      { id: 'b2', name: 'Gran Power', thaiName: 'ยายพลังม้า', image_path: imageB, specs: 'Power: ★☆☆ | Speed: ★★★', power: 1, health: 120 },
-      { id: 'b3', name: 'Muay Auntie', thaiName: 'ป้าลุยสวน', image_path: imageC, specs: 'Power: ★★★ | Speed: ★☆☆', power: 3, health: 130 },
-      { id: 'b4', name: 'Drunken Grandpa', thaiName: 'ตาหมัดเมา', image_path: imageD, specs: 'Power: ★★☆ | Speed: ★★★', power: 2, health: 135 },
-      { id: 'b5', name: 'Street Uncle', thaiName: 'ลุงสมชายนักบู๊', image_path: glove, specs: 'Power: ★★★ | Speed: ★★☆', power: 3, health: 145 }
+      {
+        id: 'b1',
+        name: 'Jim',
+        thaiName: 'จิม',
+        image_path: 'images/Jim.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        power: 4,
+        health: 1000
+      },
+      {
+        id: 'b2',
+        name: 'Peem',
+        thaiName: 'ภีม',
+        image_path: 'images/Peem.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        power: 1,
+        health: 1000
+      },
+      {
+        id: 'b3',
+        name: 'Atom',
+        thaiName: 'อะตอม',
+        image_path: 'images/Atom.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        power: 3,
+        health: 1000
+      },
+      {
+        id: 'b4',
+        name: 'Rain',
+        thaiName: 'เรน',
+        image_path: 'images/Rain.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        power: 2,
+        health: 1000
+      },
+      {
+        id: 'b5',
+        name: 'Poj',
+        thaiName: 'พจน์',
+        image_path: 'images/Poj.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        power: 3,
+        health: 1000
+      }
     ];
 
     const premiumFighters = [
-      { id: 'p1', name: 'Sayan Gong Golden', thaiName: 'ซูเปอร์อากงทองคำ', image_path: imageA, specs: 'Power: ★★★ | Speed: ★★★', price: 200, power: 3, health: 200 },
-      { id: 'p2', name: 'Cyborg Granny v3', thaiName: 'ยายเหล็กไหลไซบอร์ก', image_path: imageB, specs: 'Power: ★★★★ | Speed: ★★☆', price: 450, power: 4, health: 220 },
-      { id: 'p3', name: 'Kru Muay Legend', thaiName: 'ครูมวยในตำนาน', image_path: imageC, specs: 'Power: ★★★★★ | Speed: ★★★★', price: 600, power: 5, health: 260 },
-      { id: 'p4', name: 'Yip Grandmaster', thaiName: 'อาจารย์ยิปหมิ่น', image_path: imageD, specs: 'Power: ★★★★★ | Speed: ★★★★★', price: 800, power: 5, health: 300 },
-      { id: 'p5', name: 'Iron Fist Butler', thaiName: 'พ่อบ้านหมัดเหล็ก', image_path: glove, specs: 'Power: ★★★★☆ | Speed: ★★★☆☆', price: 500, power: 4, health: 240 }
+      {
+        id: 'p1',
+        name: 'AJ Aslan',
+        thaiName: 'อาจารย์ อัสลัน',
+        image_path: 'images/Aslan.png',
+        specs: 'Power: ★★★ | Speed: ★★★',
+        price: 10000,
+        power: 3,
+        health: 1000
+      },
+      {
+        id: 'p2',
+        name: 'AJ Nuch',
+        thaiName: 'อาจารย์ นุช',
+        image_path: 'images/Nuch.png',
+        specs: 'Power: ★★★★ | Speed: ★★☆',
+        price: 10000,
+        power: 4,
+        health: 1000
+      },
+      {
+        id: 'p3',
+        name: 'AJ Sai',
+        thaiName: 'อาจารย์ ทราย',
+        image_path: 'images/Sai.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★',
+        price: 10000,
+        power: 5,
+        health: 1000
+      },
+      {
+        id: 'p4',
+        name: 'AJ Thana',
+        thaiName: 'อาจารย์ ธนา',
+        image_path: 'images/Thana.png',
+        specs: 'Power: ★★★★★ | Speed: ★★★★★',
+        price: 10000,
+        power: 5,
+        health: 1000
+      },
+      {
+        id: 'p5',
+        name: 'AJ Thepchai',
+        thaiName: 'อาจารย์ เทพชัย',
+        image_path: 'images/Thepchai.png',
+        specs: 'Power: ★★★★☆ | Speed: ★★★☆☆',
+        price: 10000,
+        power: 4,
+        health: 1000
+      }
     ];
 
     let selectedIndex = 0;
@@ -704,12 +869,13 @@
         card.tabIndex = 0;
         card.setAttribute('role', 'button');
         card.setAttribute('aria-label', fighter.name);
-        card.style.setProperty('--fighter-image', `url('${fighter.image_path}')`);
-        card.dataset.image = fighter.image_path;
         card.innerHTML = `
           <div class="fighter-top">
             <span class="fighter-tag">${index === selectedIndex ? (fighter.pool === 'premium' ? 'Preview' : 'Active') : (fighter.pool === 'premium' ? 'Locked' : 'Free')}</span>
             ${iconSvg(fighter.pool === 'premium' ? 'lock' : 'user')}
+          </div>
+          <div class="fighter-portrait-wrap">
+            <img class="fighter-portrait" src="${fighter.image_path}" alt="${fighter.name}">
           </div>
           <div class="fighter-bottom">
             <div class="specs">${fighter.specs}</div>
