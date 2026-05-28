@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fight Result</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #fff;
+      color: #050505;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .screen {
+      width: 100vw;
+      min-height: 100vh;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 144px;
+      height: 144px;
+      object-fit: cover;
+      border: 1px solid #ddd;
+    }
+
+    .result-lines {
+      display: grid;
+      gap: 12px;
+      font-size: clamp(24px, 4vw, 32px);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 22px;
+    }
+
+    .action {
+      min-width: 112px;
+      padding: 3px 8px;
+      border: 1px solid #222;
+      background: #fff;
+      color: #111;
+      font: inherit;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .danger {
+      border-color: #ff1616;
+      color: #ff1616;
+    }
+
+    .purple {
+      border-color: #a861ff;
+      color: #8f2bff;
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <img class="logo" src="images/a-gong.png" alt="">
+
+    <section class="result-lines">
+      <div>จำนวนหมัด: <span id="punchCount">0</span></div>
+      <div>คะแนนเฉลี่ย: <span id="averageScore">0</span></div>
+    </section>
+
+    <section class="actions">
+      <button class="action danger" id="againButton" type="button">เล่นอีกครั้ง</button>
+      <button class="action" id="homeButton" type="button">กลับหน้าหลัก</button>
+      <button class="action purple" id="leaderboardButton" type="button">Leader Board</button>
+    </section>
+  </main>
+
+  <script>
+    const result = JSON.parse(localStorage.getItem('fightResult') || '{}');
+
+    document.getElementById('punchCount').textContent = result.punchCount || 0;
+    document.getElementById('averageScore').textContent = result.averageScore || 0;
+
+    document.getElementById('againButton').addEventListener('click', () => {
+      window.location.href = 'fight_mode.html';
+    });
+
+    document.getElementById('homeButton').addEventListener('click', () => {
+      window.location.href = '/';
+    });
+
+    document.getElementById('leaderboardButton').addEventListener('click', () => {
+      window.location.href = 'leaderboard.html';
+    });
+  </script>
+</body>
+</html>

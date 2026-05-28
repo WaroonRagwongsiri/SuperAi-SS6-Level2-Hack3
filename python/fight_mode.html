@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fight Mode</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 55, 25, .22), transparent 34%),
+        linear-gradient(180deg, #080808, #0e0e0f 48%, #050505);
+      color: #f7f7f7;
+      font-family: Impact, "Arial Black", Arial, sans-serif;
+    }
+
+    .screen {
+      width: 100vw;
+      min-height: 100vh;
+      padding: 8px clamp(12px, 2.4vw, 28px) 24px;
+      overflow-x: hidden;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 104px 1fr 128px;
+      align-items: start;
+      gap: 12px;
+    }
+
+    .back-button,
+    .coin-box {
+      height: 34px;
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 5px;
+      background: rgba(0,0,0,.7);
+      color: #fff;
+      font: inherit;
+      font-size: 18px;
+      letter-spacing: .02em;
+    }
+
+    .back-button {
+      cursor: pointer;
+      text-align: left;
+      padding: 0 10px;
+    }
+
+    .coin-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border-color: #b21b16;
+    }
+
+    .coin {
+      width: 20px;
+      height: 20px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #f6b51b;
+      color: #171000;
+      font-size: 15px;
+    }
+
+    .plus {
+      color: #ff2d23;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .hero-title {
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      color: #d71919;
+      font-size: clamp(42px, 6vw, 78px);
+      line-height: .8;
+      font-style: italic;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 0 #440000;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: #bdbdbd;
+      font-size: clamp(20px, 2.8vw, 34px);
+      font-style: italic;
+      line-height: .9;
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: #e8e8e8;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .hint::before,
+    .hint::after {
+      content: "←";
+      margin: 0 10px;
+      color: #e01717;
+    }
+
+    .hint::after {
+      content: "→";
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 18px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid rgba(255,255,255,.12);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      font-size: clamp(22px, 3vw, 30px);
+      font-style: italic;
+      text-shadow: 0 2px 0 #000;
+    }
+
+    .section-title.premium {
+      color: #ffd326;
+    }
+
+    .badge {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      font-size: 19px;
+    }
+
+    .section-note {
+      color: #bdbdbd;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .premium-note {
+      color: #ffd326;
+    }
+
+    .fighter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+      gap: 12px;
+    }
+
+    .fighter-card {
+      position: relative;
+      min-height: 230px;
+      overflow: hidden;
+      border: 2px solid #3b3b3b;
+      border-radius: 6px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,0) 42%),
+        #101010;
+      cursor: pointer;
+    }
+
+    .fighter-card.free.selected {
+      border-color: #ff3333;
+      box-shadow: 0 0 0 1px #ff3333, 0 0 24px rgba(255, 0, 0, .42);
+    }
+
+    .fighter-card.premium {
+      border-color: #a97d00;
+    }
+
+    .fighter-card.premium.locked {
+      cursor: default;
+    }
+
+    .fighter-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: .92;
+      filter: contrast(1.08) saturate(.9);
+    }
+
+    .fighter-card.premium .fighter-image {
+      filter: sepia(.38) contrast(1.08) saturate(1.25);
+    }
+
+    .fighter-shade {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.22) 45%, rgba(0,0,0,.9)),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 1px, transparent 1px 12px);
+    }
+
+    .fighter-card.free.selected .fighter-shade {
+      background:
+        linear-gradient(180deg, rgba(90,0,0,.1), rgba(0,0,0,.24) 45%, rgba(0,0,0,.92)),
+        repeating-linear-gradient(135deg, rgba(255,0,0,.18) 0 2px, transparent 2px 14px);
+    }
+
+    .fighter-name {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      color: #d8d8d8;
+      font-size: 28px;
+      font-style: italic;
+      line-height: .88;
+      transform: rotate(-8deg);
+      text-shadow: 0 2px 0 #000;
+    }
+
+    .fighter-card.premium .fighter-name {
+      color: #ffd326;
+    }
+
+    .check {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      width: 26px;
+      height: 26px;
+      display: none;
+      place-items: center;
+      border-radius: 50%;
+      background: #d71919;
+      border: 2px solid #fff;
+      font-family: Arial, sans-serif;
+      font-weight: 900;
+    }
+
+    .fighter-card.selected .check {
+      display: grid;
+    }
+
+    .fighter-info {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 10px 10px;
+      text-align: center;
+    }
+
+    .display-name {
+      font-size: 20px;
+      font-style: italic;
+      line-height: .9;
+    }
+
+    .role {
+      color: #d3d3d3;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .power {
+      margin-top: 9px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      font-weight: 900;
+      text-align: left;
+    }
+
+    .stars {
+      color: #e61d1d;
+      letter-spacing: 2px;
+      font-size: 15px;
+    }
+
+    .price {
+      width: 78px;
+      height: 25px;
+      margin: 8px auto 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid #b58a00;
+      border-radius: 4px;
+      background: rgba(0,0,0,.72);
+      color: #ffd326;
+      font-size: 18px;
+    }
+
+    .footer-note {
+      margin-top: 12px;
+      color: #777;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 720px) {
+      .screen {
+        padding: 12px 10px 24px;
+      }
+
+      .topbar {
+        grid-template-columns: 76px 1fr 96px;
+      }
+
+      .back-button,
+      .coin-box {
+        height: 30px;
+        font-size: 14px;
+      }
+
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .fighter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <header class="topbar">
+      <button class="back-button" id="backButton" type="button">‹ BACK</button>
+
+      <div class="hero-title">
+        <h1>FIGHT MODE</h1>
+        <div class="subtitle">SELECT YOUR FIGHTER</div>
+        <div class="hint">เลือกคู่ต่อสู้ของคุณ</div>
+      </div>
+
+      <div class="coin-box">
+        <span class="coin">$</span>
+        <span>1,250</span>
+        <span class="plus">+</span>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-head">
+        <div class="section-title"><span class="badge">✊</span> BASIC FIGHTERS</div>
+        <div class="section-note">นักสู้พื้นฐาน เล่นฟรีได้เลย!</div>
+      </div>
+      <div class="fighter-grid" id="freeGrid"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="section-title premium"><span class="badge">♕</span> PREMIUM FIGHTERS</div>
+        <div class="section-note premium-note">นักสู้พิเศษ ปลดล็อกด้วยเหรียญ</div>
+      </div>
+      <div class="fighter-grid" id="premiumGrid"></div>
+    </section>
+
+    <div class="footer-note">ปลดล็อกนักสู้พิเศษ เพื่อปลดล็อกท่าไม้ตายสุดโหด!</div>
+  </main>
+
+  <script>
+    const placeholder = 'images/a-gong.png';
+
+    const fighters = {
+      free: [
+        { name: "N'JIM", role: 'Optimizer', image_path: placeholder, power: 5, health: 100 },
+        { name: 'ATOM', role: 'Optimizer', image_path: placeholder, power: 4, health: 120 },
+        { name: 'KAI', role: 'ไก่', image_path: placeholder, power: 4, health: 140 },
+        { name: 'SINGHA', role: 'สิงหา', image_path: placeholder, power: 4, health: 160 },
+        { name: 'TOR', role: 'ต่อ', image_path: placeholder, power: 4, health: 180 }
+      ],
+      premium: [
+        { name: 'AJ. SAI SAI', role: 'อ.ทราย', image_path: placeholder, power: 5, health: 240, price: 999 },
+        { name: 'AJ. MUCH', role: 'อ.มุช', image_path: placeholder, power: 5, health: 260, price: 999 },
+        { name: 'AJ. THEPCHAI', role: 'อ.เทพชัย', image_path: placeholder, power: 5, health: 280, price: 999 },
+        { name: 'AJ. ASLAN', role: 'อ.อัสลัน', image_path: placeholder, power: 5, health: 300, price: 999 },
+        { name: 'AJ. THANA', role: 'อ.ธนา', image_path: placeholder, power: 5, health: 320, price: 999 }
+      ]
+    };
+
+    function stars(count) {
+      return '★★★★★'.slice(0, count) + '☆☆☆☆☆'.slice(0, 5 - count);
+    }
+
+    function createFighterCard(fighter, group, index) {
+      const card = document.createElement('button');
+      card.className = `fighter-card ${group}${group === 'premium' ? ' locked' : ''}${group === 'free' && index === 0 ? ' selected' : ''}`;
+      card.type = 'button';
+      card.disabled = group === 'premium';
+      card.innerHTML = `
+        <img class="fighter-image" src="${fighter.image_path}" alt="${fighter.name}">
+        <div class="fighter-shade"></div>
+        <div class="fighter-name">${fighter.name.replace(' ', '<br>')}</div>
+        <div class="check">✓</div>
+        <div class="fighter-info">
+          <div class="display-name">${fighter.name}</div>
+          <div class="role">${fighter.role}</div>
+          ${group === 'premium'
+            ? `<div class="role">LAST BOSS</div><div class="price"><span class="coin">$</span>${fighter.price}</div>`
+            : `<div class="power"><span>POWER</span><span class="stars">${stars(fighter.power)}</span></div>`}
+        </div>
+      `;
+
+      if (group === 'free') {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.fighter-card.free').forEach((item) => {
+            item.classList.remove('selected');
+          });
+          card.classList.add('selected');
+          localStorage.setItem('selectedFighter', fighter.name);
+          localStorage.setItem('selectedEnemy', JSON.stringify(fighter));
+          window.location.href = 'fighting.html';
+        });
+      }
+
+      return card;
+    }
+
+    function renderGrid(group, elementId) {
+      const grid = document.getElementById(elementId);
+      fighters[group].forEach((fighter, index) => {
+        grid.appendChild(createFighterCard(fighter, group, index));
+      });
+    }
+
+    renderGrid('free', 'freeGrid');
+    renderGrid('premium', 'premiumGrid');
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = 'mode.html';
+    });
+  </script>
+</body>
+</html>

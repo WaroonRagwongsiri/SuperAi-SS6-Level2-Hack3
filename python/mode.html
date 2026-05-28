@@ -22,6 +22,19 @@
       min-height: 100vh;
       padding: clamp(28px, 5vh, 44px) clamp(26px, 6vw, 56px) 48px;
       background: #fff;
+      position: relative;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      padding: 4px 10px;
+      border: 2px solid #0059ff;
+      background: #ff3a1f;
+      color: #000;
+      font-weight: 900;
+      cursor: pointer;
     }
 
     h1 {
@@ -146,6 +159,7 @@
 </head>
 <body>
   <main class="screen">
+    <button class="back-button" id="backButton" type="button">back</button>
     <h1>Mode Selection</h1>
     <div class="section-label">Training Mode</div>
 
@@ -162,7 +176,7 @@
         <div class="mode-art fight-art" aria-hidden="true">
           <img src="images/image%2033.png" alt="">
         </div>
-        <button class="mode-button" type="button" disabled>Fight mode</button>
+        <button class="mode-button" id="fightModeButton" type="button">Fight mode</button>
         <div class="caption">ออกกำลังกาย</div>
       </article>
 
@@ -170,7 +184,7 @@
         <div class="mode-art board-art" aria-hidden="true">
           <img src="images/image%2034.png" alt="">
         </div>
-        <button class="mode-button" type="button" disabled>Leader Board</button>
+        <button class="mode-button" id="leaderboardButton" type="button">Leader Board</button>
         <div class="caption">ดูคะแนนของคุณ</div>
       </article>
     </section>
@@ -195,7 +209,21 @@
   <script>
     document.getElementById('practiceButton').addEventListener('click', () => {
       localStorage.setItem('boxingMode', 'practice');
-      window.location.href = 'game.html';
+      fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
+      window.location.href = 'training.html';
+    });
+
+    document.getElementById('fightModeButton').addEventListener('click', () => {
+      localStorage.setItem('boxingMode', 'fight');
+      window.location.href = 'fight_mode.html';
+    });
+
+    document.getElementById('leaderboardButton').addEventListener('click', () => {
+      window.location.href = 'leaderboard.html';
+    });
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = '/';
     });
   </script>
 </body>

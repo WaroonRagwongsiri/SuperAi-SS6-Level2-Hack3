@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fighting</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #080808;
+      color: #f6f6f6;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .screen {
+      width: 100vw;
+      min-height: 100vh;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+    }
+
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .health-panel {
+      display: grid;
+      gap: 5px;
+    }
+
+    .health-panel.enemy {
+      text-align: right;
+    }
+
+    .name {
+      font-size: clamp(18px, 2.6vw, 28px);
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    .bar {
+      height: 22px;
+      overflow: hidden;
+      border: 2px solid #fff;
+      background: #2b0b0b;
+    }
+
+    .fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #30e65a, #f6e82a);
+      transition: width .25s ease;
+    }
+
+    .enemy .fill {
+      margin-left: auto;
+      background: linear-gradient(90deg, #f6e82a, #e51e1e);
+    }
+
+    .timer {
+      min-width: 118px;
+      padding: 8px 14px;
+      border: 2px solid #333;
+      border-radius: 6px;
+      background: #111;
+      text-align: center;
+    }
+
+    .phase {
+      color: #aaa;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+    }
+
+    .countdown {
+      color: #ffd326;
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .arena {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .side {
+      position: relative;
+      min-height: 340px;
+      overflow: hidden;
+      border: 3px solid #222;
+      background: #111;
+    }
+
+    video,
+    .enemy-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .camera-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #111;
+    }
+
+    .open-camera {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 6px;
+      background: #ffd326;
+      color: #111;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .enemy-card {
+      height: 100%;
+      position: relative;
+    }
+
+    .enemy-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,.74));
+    }
+
+    .enemy-label {
+      position: absolute;
+      left: 20px;
+      bottom: 18px;
+      z-index: 1;
+      font-size: clamp(34px, 6vw, 70px);
+      font-weight: 900;
+      font-style: italic;
+      text-shadow: 0 3px 0 #000;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 12px;
+      border: 1px solid #282828;
+      background: #101010;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: #888;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    .stat-value {
+      margin-top: 4px;
+      color: #ffd326;
+      font-size: 30px;
+      font-weight: 900;
+    }
+
+    @media (max-width: 760px) {
+      .hud {
+        grid-template-columns: 1fr;
+      }
+
+      .health-panel.enemy {
+        text-align: left;
+      }
+
+      .arena {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <section class="hud">
+      <div class="health-panel">
+        <div class="name">YOU</div>
+        <div class="bar"><div class="fill" id="playerHealth"></div></div>
+      </div>
+
+      <div class="timer">
+        <div class="phase" id="phase">RESTING</div>
+        <div class="countdown" id="countdown">5.0</div>
+      </div>
+
+      <div class="health-panel enemy">
+        <div class="name" id="enemyName">ENEMY</div>
+        <div class="bar"><div class="fill" id="enemyHealth"></div></div>
+      </div>
+    </section>
+
+    <section class="arena">
+      <div class="side">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <button class="open-camera" id="openCamera" type="button">Open Webcam</button>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="enemy-card">
+          <img class="enemy-image" id="enemyImage" src="images/a-gong.png" alt="">
+          <div class="enemy-label" id="enemyLabel">ENEMY</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat">
+        <div class="stat-label">PUNCHES</div>
+        <div class="stat-value" id="punchCount">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">AVG SCORE</div>
+        <div class="stat-value" id="avgScore">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">LAST DAMAGE</div>
+        <div class="stat-value" id="lastDamage">0</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const fallbackEnemy = {
+      name: "N'JIM",
+      role: 'Optimizer',
+      image_path: 'images/a-gong.png',
+      health: 100
+    };
+
+    const enemy = JSON.parse(localStorage.getItem('selectedEnemy') || 'null') || fallbackEnemy;
+    const playerMaxHealth = 100;
+    const enemyMaxHealth = Number(enemy.health) || 100;
+    let playerHealth = playerMaxHealth;
+    let enemyHealth = enemyMaxHealth;
+    let lastPunchId = 0;
+    let hasBaselinePunchId = false;
+    let punchCount = 0;
+    let scoreTotal = 0;
+    let fightEnded = false;
+
+    document.getElementById('enemyName').textContent = enemy.name;
+    document.getElementById('enemyLabel').textContent = enemy.name;
+    document.getElementById('enemyImage').src = enemy.image_path || fallbackEnemy.image_path;
+
+    function setHealth() {
+      document.getElementById('playerHealth').style.width =
+        Math.max(0, playerHealth / playerMaxHealth * 100) + '%';
+      document.getElementById('enemyHealth').style.width =
+        Math.max(0, enemyHealth / enemyMaxHealth * 100) + '%';
+    }
+
+    async function openCam() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+        await video.play();
+        document.getElementById('cameraPlaceholder').style.display = 'none';
+      } catch (e) {
+        alert('Camera error: ' + e.name + ' - ' + e.message);
+      }
+    }
+
+    function finishFight() {
+      if (fightEnded) return;
+      fightEnded = true;
+
+      const averageScore = punchCount > 0 ? Math.round(scoreTotal / punchCount) : 0;
+      const playerName = localStorage.getItem('boxingPlayerName') || 'Optimizer01';
+      const result = {
+        name: playerName,
+        enemyName: enemy.name,
+        punchCount,
+        averageScore,
+        totalScore: Math.round(scoreTotal),
+        won: enemyHealth <= 0,
+        endedAt: Date.now()
+      };
+
+      localStorage.setItem('fightResult', JSON.stringify(result));
+
+      fetch('/fight-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: playerName,
+          total_punch: punchCount,
+          average_score: averageScore
+        }),
+        keepalive: true
+      }).catch(() => {}).finally(() => {
+        window.location.href = 'fight_result.html';
+      });
+    }
+
+    function applyPunch(score) {
+      const safeScore = Number.isFinite(Number(score)) ? Number(score) : 0;
+      const damage = Math.max(1, Math.round(safeScore / 10));
+
+      punchCount += 1;
+      scoreTotal += safeScore;
+      enemyHealth = Math.max(0, enemyHealth - damage);
+
+      document.getElementById('punchCount').textContent = punchCount;
+      document.getElementById('avgScore').textContent = Math.round(scoreTotal / punchCount);
+      document.getElementById('lastDamage').textContent = damage;
+      setHealth();
+
+      if (enemyHealth <= 0) {
+        finishFight();
+      }
+    }
+
+    async function poll() {
+      if (fightEnded) return;
+
+      try {
+        const response = await fetch('/latest', { cache: 'no-store' });
+        const data = await response.json();
+        const state = String(data.state || 'resting').toUpperCase();
+        const countdown = Number(data.countdown);
+
+        document.getElementById('phase').textContent = state;
+        document.getElementById('countdown').textContent =
+          Number.isFinite(countdown) ? countdown.toFixed(1) : '0.0';
+
+        const punchId = Number(data.punch_id) || 0;
+        if (!hasBaselinePunchId) {
+          lastPunchId = punchId;
+          hasBaselinePunchId = true;
+          return;
+        }
+
+        if (punchId > lastPunchId) {
+          lastPunchId = punchId;
+          applyPunch(data.latest_score);
+        }
+      } catch (e) {
+        document.getElementById('phase').textContent = 'OFFLINE';
+      }
+    }
+
+    document.getElementById('openCamera').addEventListener('click', openCam);
+    fetch('/timer-mode/fight', { method: 'POST', keepalive: true }).catch(() => {});
+    setHealth();
+    setInterval(poll, 250);
+    poll();
+  </script>
+</body>
+</html>

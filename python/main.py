@@ -3,8 +3,9 @@ import time
 import threading
 import os
 import re
+import sqlite3
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 import uvicorn
 from score import MAX_SCORE, score_punch
@@ -18,6 +19,7 @@ latest_msg = {
     "state": "resting",
     "countdown": 5.0,
     "phase_duration": 5.0,
+    "punch_id": 0,
     "latest_score": 0.0,
     "max_score": MAX_SCORE,
     "details": {},
@@ -28,14 +30,17 @@ latest_msg = {
 # TIMED PRACTICE SETTINGS
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "fight_scores.db")
 RESTING_SEC = 5.0
+FIGHT_RESTING_SEC = 1.0
 PUNCHING_SEC = 2.0
-CYCLE_SEC = RESTING_SEC + PUNCHING_SEC
 cycle_start_time = time.time()
+timer_mode = "practice"
 
 # Punch buffer
 punch_buffer = []
 last_state = "resting"
+db_lock = threading.Lock()
 
 api = FastAPI()
 
@@ -48,13 +53,76 @@ LINE_RE = re.compile(
     r'peak=([-\d.]+)'
 )
 
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS fight_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT NOT NULL,
+                total_punch INTEGER NOT NULL,
+                average_score REAL NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        conn.commit()
+
+
+def save_fight_score(player_name, total_punch, average_score):
+    clean_name = str(player_name or "Optimizer01").strip()[:80] or "Optimizer01"
+    punch_count = max(0, int(total_punch or 0))
+    avg_score = max(0.0, float(average_score or 0))
+
+    with db_lock:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                """
+                INSERT INTO fight_scores (player_name, total_punch, average_score, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (clean_name, punch_count, avg_score, int(time.time()))
+            )
+            conn.commit()
+
+
+def get_leaderboard_rows(limit=10):
+    with db_lock:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT player_name, total_punch, average_score, created_at
+                FROM fight_scores
+                ORDER BY average_score DESC, total_punch DESC, created_at ASC
+                LIMIT ?
+                """,
+                (int(limit),)
+            ).fetchall()
+
+    return [
+        {
+            "name": row["player_name"],
+            "total_punch": row["total_punch"],
+            "average_score": round(row["average_score"], 1),
+            "score": round(row["average_score"], 1),
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
+def get_resting_sec():
+    return FIGHT_RESTING_SEC if timer_mode == "fight" else RESTING_SEC
+
+
 def get_current_state():
-    cycle_time = (time.time() - cycle_start_time) % CYCLE_SEC
+    resting_sec = get_resting_sec()
+    cycle_sec = resting_sec + PUNCHING_SEC
+    cycle_time = (time.time() - cycle_start_time) % cycle_sec
 
-    if cycle_time < RESTING_SEC:
-        return "resting", cycle_time, RESTING_SEC - cycle_time, RESTING_SEC
+    if cycle_time < resting_sec:
+        return "resting", cycle_time, resting_sec - cycle_time, resting_sec
 
-    punching_time = cycle_time - RESTING_SEC
+    punching_time = cycle_time - resting_sec
     return "punching", cycle_time, PUNCHING_SEC - punching_time, PUNCHING_SEC
 
 
@@ -103,6 +171,7 @@ def score_current_punch():
         latest_msg["latest_score"] = score_val
         latest_msg["max_score"] = result.get("max_score", MAX_SCORE)
         latest_msg["details"] = detail_scores
+        latest_msg["punch_id"] += 1
 
         print(f">>>> PUNCH SCORED: {score_val} / {MAX_SCORE:g} <<<<")
         print("DETAILS:", detail_scores)
@@ -196,6 +265,35 @@ def latest():
     latest_msg["time"] = time.time()
     return latest_msg
 
+@api.post("/fight-results")
+async def fight_results(request: Request):
+    data = await request.json()
+    save_fight_score(
+        data.get("name"),
+        data.get("total_punch"),
+        data.get("average_score")
+    )
+    return {"ok": True}
+
+@api.get("/leaderboard-data")
+def leaderboard_data():
+    return {"rows": get_leaderboard_rows()}
+
+@api.post("/timer-mode/{mode}")
+def set_timer_mode(mode: str):
+    global timer_mode, cycle_start_time, last_state, punch_buffer
+
+    if mode not in ("practice", "fight"):
+        raise HTTPException(status_code=400, detail="Invalid timer mode")
+
+    timer_mode = mode
+    cycle_start_time = time.time()
+    last_state = "resting"
+    punch_buffer = []
+    current_state, cycle_time, countdown, phase_duration = get_current_state()
+    update_ui_timer(current_state, cycle_time, countdown, phase_duration)
+    return {"ok": True, "mode": timer_mode, "resting_sec": get_resting_sec()}
+
 @api.get("/{page_path:path}", response_class=FileResponse)
 def html_page(page_path: str):
     if not page_path.endswith(".html"):
@@ -238,6 +336,7 @@ def loop():
 
 
 api_thread = threading.Thread(target=run_api, daemon=True)
+init_db()
 api_thread.start()
 
 App.run(user_loop=loop)

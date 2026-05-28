@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leader Board</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #ffefa8;
+      color: #050505;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .screen {
+      width: 100vw;
+      min-height: 100vh;
+      padding: 8px 12px 28px;
+    }
+
+    .back {
+      position: fixed;
+      left: 14px;
+      top: 10px;
+      padding: 3px 10px;
+      border: 2px solid #0059ff;
+      background: #ff3a1f;
+      color: #000;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    h1 {
+      margin: 8px 0 8px;
+      text-align: center;
+      font-size: clamp(44px, 7vw, 62px);
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    table {
+      width: min(86vw, 520px);
+      margin: 0 auto;
+      border-collapse: collapse;
+      background: rgba(210, 207, 195, .72);
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    th,
+    td {
+      border: 2px solid #111;
+      padding: 8px 12px;
+      text-align: center;
+    }
+
+    th {
+      color: #4054ff;
+      font-size: 26px;
+    }
+
+    @media (max-width: 520px) {
+      table {
+        width: 100%;
+      }
+
+      th {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <button class="back" id="backButton" type="button">back</button>
+    <h1>Leader Board</h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboardBody"></tbody>
+    </table>
+  </main>
+
+  <script>
+    const body = document.getElementById('leaderboardBody');
+
+    function renderRows(rows) {
+      body.innerHTML = '';
+
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="2">No scores yet</td>';
+        body.appendChild(tr);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.name}</td><td>${row.score}</td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    async function loadLeaderboard() {
+      try {
+        const response = await fetch('/leaderboard-data', { cache: 'no-store' });
+        const data = await response.json();
+        renderRows(data.rows || []);
+      } catch (e) {
+        renderRows([]);
+      }
+    }
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = 'mode.html';
+    });
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>
