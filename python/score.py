@@ -11,7 +11,6 @@ DEFAULT_REFERENCE = {
     'snap':           (0.50, 0.85), 
     'wrist_turn_deg': (5.0,  60.0), 
     'peak_speed':     (3.0,  7.0),  
-    'duration':       (0.95, 0.20), 
 }
 
 METRIC_WEIGHTS = {
@@ -20,7 +19,6 @@ METRIC_WEIGHTS = {
     'snap':           0.8,
     'wrist_turn_deg': 1.5,
     'peak_speed':     1.0,
-    'duration':       0.5,
 }
 
 def _scale(value, lo, hi):
@@ -97,20 +95,18 @@ def score_punch(rep_df, reference=None, weights=None, return_trajectory=False):
     wrist_turn = float(abs(np.degrees(twist_rad)))
 
     peak_speed = float(np.linalg.norm(vel, axis=1).max())
-    duration = float(t[-1] - t[0])
 
-    metrics = dict(straightness=straightness, peak_a_g=peak_a, snap=snap, wrist_turn_deg=wrist_turn, peak_speed=peak_speed, duration=duration)
+    metrics = dict(straightness=straightness, peak_a_g=peak_a, snap=snap, wrist_turn_deg=wrist_turn, peak_speed=peak_speed)
     scores = {
         'straightness':   _scale(straightness, *ref['straightness']),
         'peak_a_g':       _scale(peak_a, *ref['peak_a_g']),
         'snap':           _scale(snap, *ref['snap']),
         'wrist_turn_deg': _scale(wrist_turn, *ref['wrist_turn_deg']),
         'peak_speed':     _scale(peak_speed, *ref['peak_speed']),
-        'duration':       _gaussian(duration, *ref['duration']),
     }
 
     total_w = sum(w.values())
-    overall = sum(scores[k] * w[k] for k in scores) / total_w
+    overall = sum(scores[k] * w.get(k, 0.0) for k in scores) / total_w
     overall = float(np.clip(overall, 0, MAX_SCORE))
 
     result = dict(overall=round(overall, 1), metrics=metrics, scores=scores, max_score=MAX_SCORE)

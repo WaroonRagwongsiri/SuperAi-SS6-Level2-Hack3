@@ -18,8 +18,8 @@ latest_msg = {
     "raw": "",
     "time": 0,
     "state": "resting",
-    "countdown": 5.0,
-    "phase_duration": 5.0,
+    "countdown": 2.0,
+    "phase_duration": 2.0,
     "punch_id": 0,
     "latest_score": 0.0,
     "max_score": MAX_SCORE,
@@ -29,14 +29,15 @@ latest_msg = {
 }
 
 # =========================
-# TIMED PRACTICE SETTINGS
+# TIMED PUNCH DETECTION SETTINGS
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "fight_scores.db")
 MODEL_DIR = os.path.join(BASE_DIR, "model_output")
 PUNCH_MODEL = TorchScriptPunchPredictor(MODEL_DIR)
+PUNCH_DETECTION_THRESHOLD = 0.65
+PUNCH_MODEL.threshold = max(PUNCH_MODEL.threshold, PUNCH_DETECTION_THRESHOLD)
 RESTING_SEC = 2.0
-FIGHT_RESTING_SEC = 1.0
 PUNCHING_SEC = 2.0
 cycle_start_time = time.time()
 timer_mode = "practice"
@@ -114,19 +115,14 @@ def get_leaderboard_rows(limit=10):
     ]
 
 
-def get_resting_sec():
-    return FIGHT_RESTING_SEC if timer_mode == "fight" else RESTING_SEC
-
-
 def get_current_state():
-    resting_sec = get_resting_sec()
-    cycle_sec = resting_sec + PUNCHING_SEC
+    cycle_sec = RESTING_SEC + PUNCHING_SEC
     cycle_time = (time.time() - cycle_start_time) % cycle_sec
 
-    if cycle_time < resting_sec:
-        return "resting", cycle_time, resting_sec - cycle_time, resting_sec
+    if cycle_time < RESTING_SEC:
+        return "resting", cycle_time, RESTING_SEC - cycle_time, RESTING_SEC
 
-    punching_time = cycle_time - resting_sec
+    punching_time = cycle_time - RESTING_SEC
     return "punching", cycle_time, PUNCHING_SEC - punching_time, PUNCHING_SEC
 
 
@@ -171,17 +167,22 @@ def score_current_punch():
         model_samples = df[
             ["ax_g", "ay_g", "az_g", "gx_dps", "gy_dps", "gz_dps", "peak"]
         ].to_dict("records")
-        result = PUNCH_MODEL.score_samples(model_samples)
+        prediction = PUNCH_MODEL.predict_samples(model_samples)
 
-        if result.get("error") == "model predicted rest":
-            latest_msg["metrics"] = result.get("metrics", {})
-            latest_msg["details"] = result.get("scores", {})
+        if not prediction.get("is_punch"):
+            latest_msg["metrics"] = prediction
+            latest_msg["details"] = {}
             print(
                 "Punch ignored: model predicted rest "
-                f"(prob={latest_msg['metrics'].get('probability', 0.0):.3f})"
+                f"(prob={prediction.get('probability', 0.0):.3f})"
             )
             punch_buffer = []
             return
+
+        result = score_punch(df, weights={"duration": 0.0})
+        result.get("metrics", {}).pop("duration", None)
+        result.get("scores", {}).pop("duration", None)
+        result["metrics"]["punch_probability"] = prediction.get("probability", 0.0)
 
         score_val = result.get("overall", 0.0)
         detail_scores = result.get("scores", {})
@@ -193,7 +194,7 @@ def score_current_punch():
         latest_msg["details"] = detail_scores
         latest_msg["punch_id"] += 1
 
-        print(f">>>> MODEL PUNCH SCORED: {score_val} / {MAX_SCORE:g} <<<<")
+        print(f">>>> RNN CONFIRMED PUNCH SCORED: {score_val} / {MAX_SCORE:g} <<<<")
         print("DETAILS:", detail_scores)
         print("METRICS:", metrics)
 
@@ -236,25 +237,16 @@ def serial_from_nano(data):
     current_state, cycle_time, countdown, phase_duration = get_current_state()
     update_ui_timer(current_state, cycle_time, countdown, phase_duration)
 
-    # =========================
-    # STATE CHANGE DETECTION
-    # =========================
-
-    # RESTING -> PUNCHING
     if last_state == "resting" and current_state == "punching":
         print(">>>> TIMED PUNCH START <<<<")
         punch_buffer = []
 
-    # PUNCHING -> RESTING
     if last_state == "punching" and current_state == "resting":
         print(">>>> TIMED PUNCH END <<<<")
         score_current_punch()
 
     last_state = current_state
 
-    # =========================
-    # STORE DATA ONLY DURING PUNCHING
-    # =========================
     if current_state == "punching":
         punch_buffer.append([
             now_ms,
@@ -264,10 +256,6 @@ def serial_from_nano(data):
         ])
 
         print(f"STORE PUNCH DATA: countdown={countdown:.1f}s buffer={len(punch_buffer)}")
-
-    else:
-        # Resting state: do not save IMU data
-        pass
 
 
 Bridge.provide("serial_from_nano", serial_from_nano)
@@ -314,7 +302,7 @@ def set_timer_mode(mode: str):
     punch_buffer = []
     current_state, cycle_time, countdown, phase_duration = get_current_state()
     update_ui_timer(current_state, cycle_time, countdown, phase_duration)
-    return {"ok": True, "mode": timer_mode, "resting_sec": get_resting_sec()}
+    return {"ok": True, "mode": timer_mode, "resting_sec": RESTING_SEC, "punching_sec": PUNCHING_SEC}
 
 @api.get("/{page_path:path}", response_class=FileResponse)
 def html_page(page_path: str):
