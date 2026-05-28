@@ -1,0 +1,7 @@
+name: StreamTest
+description: ""
+ports: [8501, 8000, 7000]
+bricks:
+- arduino:streamlit_ui: {}
+- arduino:web_ui: {}
+icon: 😀

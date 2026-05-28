@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UNO Q — Webcam</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0a0a0c;
+      --surface: #111116;
+      --border:  #2a2a35;
+      --accent:  #ffd400;
+      --accent2: #ff6a00;
+      --text:    #e8e8f0;
+      --muted:   #666680;
+      --mono:    'Share Tech Mono', monospace;
+      --display: 'Barlow Condensed', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 20px 40px;
+      gap: 20px;
+    }
+
+    /* ── header ── */
+    header {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    header h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      line-height: 1;
+    }
+    header span {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── camera wrapper ── */
+    .cam-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* placeholder when no webcam */
+    .cam-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: var(--surface);
+    }
+    .cam-placeholder svg {
+      width: 56px; height: 56px; opacity: .25;
+    }
+    .cam-placeholder p {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* open webcam btn */
+    #openBtn {
+      padding: 10px 22px;
+      background: var(--accent);
+      color: #111;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    #openBtn:hover { opacity: .85; }
+    #openBtn:active { opacity: .7; }
+
+    /* ── scorebox overlay ── */
+    .scorebox {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(6px);
+      border: 1.5px solid var(--accent);
+      border-radius: 10px;
+      padding: 10px 16px 12px;
+      z-index: 20;
+      min-width: 110px;
+    }
+    .scorebox .label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .scorebox .value {
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--accent);
+      text-shadow: 0 0 24px rgba(255,212,0,.5);
+      transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+    }
+    .scorebox .value.bump {
+      transform: scale(1.25);
+    }
+
+    /* ── signal bar ── */
+    .signal-bar {
+      width: 100%;
+      max-width: 960px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background .3s;
+    }
+    .dot.live { background: #3dff8f; box-shadow: 0 0 8px #3dff8f88; }
+    .raw-text {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+    .ts {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* scan line decoration */
+    .cam-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,.08) 3px,
+        rgba(0,0,0,.08) 4px
+      );
+      pointer-events: none;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>UNO Q</h1>
+    <span>WEBCAM MONITOR v1.0</span>
+  </header>
+
+  <div class="cam-wrap" id="camWrap">
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <!-- placeholder shown until webcam opens -->
+    <div class="cam-placeholder" id="placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.4">
+        <path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14"/>
+        <rect x="2" y="7" width="13" height="10" rx="2"/>
+      </svg>
+      <p>No camera feed</p>
+      <button id="openBtn" onclick="openWebcam()">Open Webcam</button>
+    </div>
+
+    <!-- scorebox always visible -->
+    <div class="scorebox">
+      <div class="label">Score</div>
+      <div class="value" id="score">0</div>
+    </div>
+  </div>
+
+  <div class="signal-bar">
+    <div class="dot" id="dot"></div>
+    <div class="raw-text" id="rawText">Waiting for Nano signal…</div>
+    <div class="ts" id="ts">—</div>
+  </div>
+
+  <script>
+    // ── webcam ──────────────────────────────────────────────────────────────
+    async function openWebcam() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('Webcam API not supported in this browser.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const v = document.getElementById('webcam');
+        v.srcObject = stream;
+        await v.play();
+        document.getElementById('placeholder').style.display = 'none';
+      } catch (err) {
+        alert('Cannot open webcam: ' + err.name + ' — ' + err.message);
+      }
+    }
+
+    // ── score logic ─────────────────────────────────────────────────────────
+    let score = 0;
+    let lastScoredRaw = '';
+
+    function bumpScore() {
+      score++;
+      const el = document.getElementById('score');
+      el.textContent = score;
+      el.classList.remove('bump');
+      void el.offsetWidth;          // reflow to restart animation
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 200);
+    }
+
+    // ── polling /latest ─────────────────────────────────────────────────────
+    async function poll() {
+      try {
+        const res = await fetch('/latest', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const raw = data.raw || '';
+
+        document.getElementById('dot').classList.toggle('live', !!raw);
+        document.getElementById('rawText').textContent = raw || 'Waiting for Nano signal…';
+
+        if (data.time) {
+          const d = new Date(data.time * 1000);
+          document.getElementById('ts').textContent = d.toLocaleTimeString();
+        }
+
+        if (raw.includes('control=1') && raw !== lastScoredRaw) {
+          lastScoredRaw = raw;
+          bumpScore();
+        }
+      } catch (_) {
+        // server not yet up — silent
+      }
+    }
+
+    setInterval(poll, 300);
+    poll();
+  </script>
+</body>
+</html>
