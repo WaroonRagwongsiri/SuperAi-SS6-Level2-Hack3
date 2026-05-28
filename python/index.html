@@ -1,511 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>UNO Q Punch Score</title>
 
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boxing With Ar Ghong</title>
   <style>
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
     }
 
     body {
-      background: #0a0a0c;
-      color: #e8e8f0;
-      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 24px 16px 40px;
-      gap: 16px;
+      background:
+        linear-gradient(90deg, #181818 12px, transparent 12px) 0 0 / 24px 24px,
+        #282828;
+      color: #050505;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
-    h1 {
-      font-size: 32px;
-      font-weight: 900;
-      color: #ffd400;
-      letter-spacing: 0.04em;
-      text-align: center;
-    }
-
-    .cam-wrap {
-      position: relative;
-      width: 100%;
-      max-width: 960px;
-      aspect-ratio: 16 / 9;
-      background: #000;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 3px solid #222;
-      transition: border .2s ease, box-shadow .2s ease;
-    }
-
-    .cam-wrap.resting {
-      border-color: #3dff8f;
-      box-shadow: 0 0 24px rgba(61, 255, 143, .22);
-    }
-
-    .cam-wrap.punching {
-      border-color: #ff3d3d;
-      box-shadow: 0 0 34px rgba(255, 61, 61, .45);
-    }
-
-    #webcam {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .placeholder {
-      position: absolute;
-      inset: 0;
+    .screen {
+      width: 100vw;
+      min-height: 100vh;
+      padding: clamp(12px, 2.2vh, 24px) clamp(18px, 4.8vw, 48px) 40px;
+      background: #ffefa8;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      background: #111;
-      z-index: 5;
     }
 
-    .placeholder p {
-      font-size: 13px;
-      color: #555;
-      font-family: monospace;
-    }
-
-    #openBtn {
-      padding: 10px 22px;
-      background: #ffd400;
-      color: #111;
-      border: none;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    #openBtn:hover {
-      opacity: .85;
-    }
-
-    /* State Badge - Top Left */
-    .state-badge {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      z-index: 30;
-      padding: 10px 18px;
-      border-radius: 999px;
-      font-size: 18px;
-      font-weight: 900;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #111;
-      background: #777;
-      border: 2px solid rgba(255,255,255,.25);
-      box-shadow: 0 0 20px rgba(0,0,0,.45);
-      transition: all .2s ease;
-    }
-
-    .state-badge.resting {
-      background: #3dff8f;
-      color: #06140b;
-      box-shadow: 0 0 18px rgba(61,255,143,.45);
-    }
-
-    .state-badge.punching {
-      background: #ff3d3d;
-      color: #fff;
-      box-shadow: 0 0 24px rgba(255,61,61,.65);
-      animation: pulsePunch .55s infinite alternate;
-    }
-
-    @keyframes pulsePunch {
-      from {
-        transform: scale(1);
-        filter: brightness(1);
-      }
-      to {
-        transform: scale(1.08);
-        filter: brightness(1.25);
-      }
-    }
-
-    /* Overall Score - Top Right */
-    .scorebox {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      background: rgba(0,0,0,.78);
-      border: 2px solid #ffd400;
-      border-radius: 12px;
-      padding: 10px 18px 14px;
-      text-align: center;
-      z-index: 25;
-      min-width: 100px;
-    }
-
-    .scorebox .lbl {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      color: #aaa;
-      text-transform: uppercase;
-    }
-
-    .scorebox .num {
-      font-size: 56px;
-      font-weight: 900;
-      color: #ffd400;
-      line-height: 1;
-      text-shadow: 0 0 20px rgba(255,212,0,.45);
-      transition: transform .12s cubic-bezier(.34,1.56,.64,1);
-    }
-
-    .scorebox .num.bump {
-      transform: scale(1.3);
-    }
-
-    /* Nano Data Box */
-    .signal {
+    .start-panel {
       width: 100%;
-      max-width: 960px;
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 10px;
-      padding: 12px 16px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      transition: border .2s ease, box-shadow .2s ease;
     }
 
-    .signal.resting {
-      border-color: rgba(61,255,143,.35);
+    .logo-photo {
+      width: 189px;
+      height: 397px;
+      margin-bottom: 4px;
+      display: block;
+      object-fit: cover;
+      object-position: center;
+      border: 3px solid #111;
+      background: #222;
     }
 
-    .signal.punching {
-      border-color: rgba(255,61,61,.65);
-      box-shadow: 0 0 16px rgba(255,61,61,.18);
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #333;
-      flex-shrink: 0;
-      transition: background .3s, box-shadow .3s;
-    }
-
-    .dot.live {
-      background: #3dff8f;
-      box-shadow: 0 0 7px #3dff8f99;
-    }
-
-    .signal.punching .dot.live {
-      background: #ff3d3d;
-      box-shadow: 0 0 9px #ff3d3dcc;
-    }
-
-    .raw {
-      font-family: monospace;
-      font-size: 13px;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    h1 {
+      width: 100%;
+      margin: 0 0 28px;
+      font-size: clamp(42px, 8.6vw, 66px);
+      font-weight: 400;
+      line-height: 1;
+      text-align: center;
+      letter-spacing: 0;
       white-space: nowrap;
     }
 
-    .ts {
-      font-family: monospace;
-      font-size: 11px;
-      color: #555;
-      flex-shrink: 0;
-    }
-
-    .score-row {
-      width: 100%;
-      max-width: 960px;
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 10px;
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .score-row .lbl {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      color: #666;
-      text-transform: uppercase;
-      flex-shrink: 0;
-    }
-
-    .score-bar-wrap {
-      flex: 1;
-      height: 8px;
-      background: #1e1e1e;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .score-bar {
-      height: 100%;
-      width: 0%;
-      background: #ffd400;
-      border-radius: 4px;
-      transition: width 0.4s ease;
-    }
-
-    .score-num {
-      font-size: 28px;
-      font-weight: 900;
-      color: #ffd400;
-      line-height: 1;
-      min-width: 52px;
-      text-align: right;
-      flex-shrink: 0;
-    }
-
-    /* Details Grid */
-    .details-grid {
-      width: 100%;
-      max-width: 960px;
+    .name-row {
+      width: min(100%, 574px);
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 12px;
-      margin-top: 4px;
-    }
-
-    .detail-card {
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 10px;
-      padding: 14px 10px;
-      text-align: center;
-    }
-
-    .detail-card .lbl {
-      font-size: 10px;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
-
-    .detail-card .val {
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
       font-size: 26px;
-      font-weight: 700;
-      color: #e8e8f0;
     }
 
-    @media (max-width: 600px) {
+    .name-row input {
+      width: 100%;
+      height: 30px;
+      padding: 1px 14px;
+      border: 0;
+      background: #dfe2e6;
+      color: #111;
+      font: inherit;
+      outline: 2px solid transparent;
+    }
+
+    .name-row input:focus {
+      outline-color: #ffc928;
+    }
+
+    .start-button {
+      min-width: 144px;
+      height: 64px;
+      padding: 0 24px;
+      border: 0;
+      border-radius: 999px;
+      background: #ffc928;
+      color: #050505;
+      font-size: 34px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .start-button:hover {
+      background: #ffd75a;
+    }
+
+    .start-button:active {
+      transform: translateY(1px);
+    }
+
+    @media (max-width: 720px) {
+      .screen {
+        padding: 12px 16px 34px;
+      }
+
+      .logo-photo {
+        width: 154px;
+        height: 324px;
+      }
+
       h1 {
-        font-size: 24px;
+        margin-bottom: 22px;
+        white-space: normal;
       }
 
-      .state-badge {
-        font-size: 13px;
-        padding: 8px 12px;
-      }
-
-      .scorebox {
-        padding: 8px 12px 10px;
-        min-width: 82px;
-      }
-
-      .scorebox .num {
-        font-size: 42px;
-      }
-
-      .score-row {
-        padding: 12px;
-        gap: 10px;
-      }
-
-      .score-row .lbl {
-        display: none;
+      .name-row {
+        grid-template-columns: auto 1fr;
+        font-size: 22px;
       }
     }
   </style>
 </head>
 
 <body>
-  <h1>UNO Q — Punch Score</h1>
+  <main class="screen">
+    <div class="start-panel">
+      <img class="logo-photo" src="images/a-gong.png" alt="Ar Ghong">
 
-  <div class="cam-wrap resting" id="cam-wrap">
-    <div class="state-badge resting" id="state-badge">RESTING</div>
+      <h1>Boxing With Ar Ghong</h1>
 
-    <video id="webcam" autoplay playsinline muted></video>
+      <label class="name-row">
+        <span>Name:</span>
+        <input id="playerName" type="text" value="Optimizer01" autocomplete="off">
+      </label>
 
-    <div class="placeholder" id="ph">
-      <p>No camera feed</p>
-      <button id="openBtn" onclick="openCam()">Open Webcam</button>
+      <button class="start-button" id="startButton" type="button">START</button>
     </div>
-
-    <div class="scorebox">
-      <div class="lbl">Punch Score</div>
-      <div class="num" id="score">0</div>
-    </div>
-  </div>
-
-  <div class="signal resting" id="signal-box">
-    <div class="dot" id="dot"></div>
-    <div class="raw" id="raw">Waiting for Nano signal…</div>
-    <div class="ts" id="ts">—</div>
-  </div>
-
-  <div class="score-row" id="score-row">
-    <div class="lbl">Punch Score</div>
-    <div class="score-bar-wrap">
-      <div class="score-bar" id="score-bar"></div>
-    </div>
-    <div class="score-num" id="score-inline">0</div>
-  </div>
-
-  <div class="details-grid" id="details-grid"></div>
+  </main>
 
   <script>
-    const DEFAULT_MAX_SCORE = 999;
+    const nameInput = document.getElementById('playerName');
+    const startButton = document.getElementById('startButton');
 
-    async function openCam() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
+    startButton.addEventListener('click', () => {
+      const playerName = nameInput.value.trim() || 'Optimizer01';
+      localStorage.setItem('boxingPlayerName', playerName);
+      window.location.href = 'mode.html';
+    });
 
-        const v = document.getElementById('webcam');
-        v.srcObject = stream;
-        await v.play();
-
-        document.getElementById('ph').style.display = 'none';
-      } catch (e) {
-        alert('Camera error: ' + e.name + ' — ' + e.message);
+    nameInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        startButton.click();
       }
-    }
-
-    let currentScore = 0;
-    let maxScore = DEFAULT_MAX_SCORE;
-
-    function updateScore(newScore) {
-      const safeScore = Number.isFinite(Number(newScore)) ? Number(newScore) : 0;
-      const clampedScore = Math.max(0, Math.min(safeScore, maxScore));
-      const roundedScore = Math.round(clampedScore);
-
-      if (roundedScore === currentScore) return;
-
-      currentScore = roundedScore;
-
-      const scoreOverlay = document.getElementById('score');
-      scoreOverlay.textContent = currentScore;
-
-      scoreOverlay.classList.remove('bump');
-      void scoreOverlay.offsetWidth;
-      scoreOverlay.classList.add('bump');
-
-      setTimeout(() => {
-        scoreOverlay.classList.remove('bump');
-      }, 180);
-
-      document.getElementById('score-inline').textContent = currentScore;
-
-      const barWidth = maxScore > 0 ? (currentScore / maxScore) * 100 : 0;
-      document.getElementById('score-bar').style.width = barWidth + '%';
-    }
-
-    function updateState(stateFromApi) {
-      const state = String(stateFromApi || 'resting').toLowerCase();
-
-      const isPunching = state === 'punching';
-      const displayState = isPunching ? 'PUNCHING' : 'RESTING';
-
-      const badge = document.getElementById('state-badge');
-      const camWrap = document.getElementById('cam-wrap');
-      const signalBox = document.getElementById('signal-box');
-
-      badge.textContent = displayState;
-
-      badge.classList.remove('resting', 'punching');
-      camWrap.classList.remove('resting', 'punching');
-      signalBox.classList.remove('resting', 'punching');
-
-      if (isPunching) {
-        badge.classList.add('punching');
-        camWrap.classList.add('punching');
-        signalBox.classList.add('punching');
-      } else {
-        badge.classList.add('resting');
-        camWrap.classList.add('resting');
-        signalBox.classList.add('resting');
-      }
-    }
-
-    function renderDetails(details) {
-      const grid = document.getElementById('details-grid');
-
-      if (!details || Object.keys(details).length === 0) {
-        return;
-      }
-
-      grid.innerHTML = '';
-
-      for (const [key, val] of Object.entries(details)) {
-        const cleanLabel = key.replace(/_/g, ' ');
-        const numberVal = Number(val);
-        const displayVal = Number.isFinite(numberVal) ? Math.round(numberVal) : val;
-
-        grid.innerHTML += `
-          <div class="detail-card">
-            <div class="lbl">${cleanLabel}</div>
-            <div class="val">${displayVal}</div>
-          </div>
-        `;
-      }
-    }
-
-    async function poll() {
-      try {
-        const r = await fetch('/latest', { cache: 'no-store' });
-        const d = await r.json();
-
-        updateState(d.state);
-        maxScore = Number.isFinite(Number(d.max_score)) ? Number(d.max_score) : DEFAULT_MAX_SCORE;
-
-        const raw = d.raw || '';
-        const dot = document.getElementById('dot');
-
-        dot.classList.toggle('live', !!raw);
-        document.getElementById('raw').textContent = raw || 'Waiting for Nano signal…';
-
-        if (d.time) {
-          document.getElementById('ts').textContent =
-            new Date(d.time * 1000).toLocaleTimeString();
-        } else {
-          document.getElementById('ts').textContent = '—';
-        }
-
-        if (d.latest_score !== undefined) {
-          updateScore(d.latest_score);
-        }
-
-        renderDetails(d.details);
-
-      } catch (e) {
-        updateState('resting');
-      }
-    }
-
-    setInterval(poll, 300);
-    poll();
+    });
   </script>
 </body>
+
 </html>

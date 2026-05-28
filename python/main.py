@@ -4,7 +4,7 @@ import threading
 import os
 import re
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 import uvicorn
 from score import MAX_SCORE, score_punch
@@ -16,6 +16,8 @@ latest_msg = {
     "raw": "",
     "time": 0,
     "state": "resting",
+    "countdown": 5.0,
+    "phase_duration": 5.0,
     "latest_score": 0.0,
     "max_score": MAX_SCORE,
     "details": {},
@@ -23,18 +25,17 @@ latest_msg = {
 }
 
 # =========================
-# FIXED TIME FRAME SETTINGS
+# TIMED PRACTICE SETTINGS
 # =========================
-RESTING_SEC = 4.0
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESTING_SEC = 5.0
 PUNCHING_SEC = 2.0
 CYCLE_SEC = RESTING_SEC + PUNCHING_SEC
-
-# This is when the repeating cycle starts
 cycle_start_time = time.time()
 
 # Punch buffer
 punch_buffer = []
-last_state = "punching"
+last_state = "resting"
 
 api = FastAPI()
 
@@ -48,19 +49,20 @@ LINE_RE = re.compile(
 )
 
 def get_current_state():
-    """
-    UNO Q decides state by fixed time window:
-    0-2 sec  = punching
-    2-6 sec  = resting
-    repeat
-    """
-    now = time.time()
-    cycle_time = (now - cycle_start_time) % CYCLE_SEC
+    cycle_time = (time.time() - cycle_start_time) % CYCLE_SEC
 
-    if cycle_time < PUNCHING_SEC:
-        return "punching", cycle_time
-    else:
-        return "resting", cycle_time
+    if cycle_time < RESTING_SEC:
+        return "resting", cycle_time, RESTING_SEC - cycle_time, RESTING_SEC
+
+    punching_time = cycle_time - RESTING_SEC
+    return "punching", cycle_time, PUNCHING_SEC - punching_time, PUNCHING_SEC
+
+
+def update_ui_timer(current_state, cycle_time, countdown, phase_duration):
+    latest_msg["state"] = current_state
+    latest_msg["cycle_time"] = round(cycle_time, 2)
+    latest_msg["countdown"] = round(max(0.0, countdown), 1)
+    latest_msg["phase_duration"] = phase_duration
 
 
 def score_current_punch():
@@ -71,8 +73,14 @@ def score_current_punch():
         punch_buffer = []
         return
 
+    first_ms = punch_buffer[0][0]
+    normalized_buffer = [
+        [row[0] - first_ms, *row[1:]]
+        for row in punch_buffer
+    ]
+
     df = pd.DataFrame(
-        punch_buffer,
+        normalized_buffer,
         columns=[
             "phase_elapsed_ms",
             "ax_g",
@@ -135,10 +143,8 @@ def serial_from_nano(data):
 
     peak = float(match.group(8))
 
-    current_state, cycle_time = get_current_state()
-
-    latest_msg["state"] = current_state
-    latest_msg["cycle_time"] = round(cycle_time, 2)
+    current_state, cycle_time, countdown, phase_duration = get_current_state()
+    update_ui_timer(current_state, cycle_time, countdown, phase_duration)
 
     # =========================
     # STATE CHANGE DETECTION
@@ -146,12 +152,12 @@ def serial_from_nano(data):
 
     # RESTING -> PUNCHING
     if last_state == "resting" and current_state == "punching":
-        print(">>>> TIME WINDOW PUNCH START <<<<")
+        print(">>>> TIMED PUNCH START <<<<")
         punch_buffer = []
 
     # PUNCHING -> RESTING
     if last_state == "punching" and current_state == "resting":
-        print(">>>> TIME WINDOW PUNCH END <<<<")
+        print(">>>> TIMED PUNCH END <<<<")
         score_current_punch()
 
     last_state = current_state
@@ -160,15 +166,13 @@ def serial_from_nano(data):
     # STORE DATA ONLY DURING PUNCHING
     # =========================
     if current_state == "punching":
-        punch_elapsed_ms = cycle_time * 1000
-
         punch_buffer.append([
-            punch_elapsed_ms,
+            now_ms,
             ax, ay, az,
             gx, gy, gz
         ])
 
-        print(f"STORE PUNCH DATA: t={punch_elapsed_ms:.1f} ms buffer={len(punch_buffer)}")
+        print(f"STORE PUNCH DATA: countdown={countdown:.1f}s buffer={len(punch_buffer)}")
 
     else:
         # Resting state: do not save IMU data
@@ -176,8 +180,6 @@ def serial_from_nano(data):
 
 
 Bridge.provide("serial_from_nano", serial_from_nano)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @api.get("/", response_class=FileResponse)
 def home():
@@ -189,12 +191,26 @@ def image(filename: str):
 
 @api.get("/latest")
 def latest():
-    # Update state even if no new serial data arrives
-    current_state, cycle_time = get_current_state()
-    latest_msg["state"] = current_state
-    latest_msg["cycle_time"] = round(cycle_time, 2)
+    current_state, cycle_time, countdown, phase_duration = get_current_state()
+    update_ui_timer(current_state, cycle_time, countdown, phase_duration)
     latest_msg["time"] = time.time()
     return latest_msg
+
+@api.get("/{page_path:path}", response_class=FileResponse)
+def html_page(page_path: str):
+    if not page_path.endswith(".html"):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    requested_path = os.path.abspath(os.path.join(BASE_DIR, page_path))
+    base_path = os.path.abspath(BASE_DIR)
+
+    if not requested_path.startswith(base_path + os.sep):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    if not os.path.isfile(requested_path):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    return requested_path
 
 CERT = os.path.join(BASE_DIR, "cert.pem")
 KEY = os.path.join(BASE_DIR, "key.pem")
