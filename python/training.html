@@ -29,12 +29,39 @@
       top: 12px;
       left: 14px;
       z-index: 60;
-      padding: 5px 12px;
-      border: 2px solid #0059ff;
-      background: #ff3a1f;
-      color: #000;
-      font-weight: 900;
+      min-height: 42px;
+      padding: 0 15px;
+      border: 1px solid #262a33;
+      border-radius: 10px;
+      background: #111;
+      color: #9ca3af;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       cursor: pointer;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .back-button:hover {
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.48);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    .back-button svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 180ms ease;
+    }
+
+    .back-button:hover svg {
+      transform: translateX(-3px);
     }
 
     h1 {
@@ -222,16 +249,25 @@
     }
 
     .start-countdown {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 32;
+      min-width: 76px;
+      padding: 8px 16px 10px;
       display: grid;
       place-items: center;
-      background: rgba(0, 0, 0, .86);
+      background: rgba(0, 0, 0, .78);
+      border: 2px solid rgba(255, 211, 38, .85);
+      border-radius: 999px;
       color: #ffd326;
-      font-size: clamp(96px, 18vw, 220px);
+      font-size: 34px;
       font-weight: 900;
-      text-shadow: 0 0 28px rgba(255, 211, 38, .42);
+      line-height: 1;
+      box-shadow: 0 0 18px rgba(255, 211, 38, .24);
+      text-shadow: 0 0 14px rgba(255, 211, 38, .42);
+      pointer-events: none;
     }
 
     @keyframes pulsePunch {
@@ -462,6 +498,13 @@
         font-size: 32px;
       }
 
+      .start-countdown {
+        top: 104px;
+        min-width: 62px;
+        padding: 6px 12px 8px;
+        font-size: 26px;
+      }
+
       .score-row {
         padding: 12px;
         gap: 10px;
@@ -477,8 +520,13 @@
 </head>
 
 <body>
-  <div class="start-countdown" id="startCountdown">3</div>
-  <button class="back-button" id="backButton" type="button">back</button>
+  <button class="back-button" id="backButton" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+    <span>Back</span>
+  </button>
 
   <h1>UNO Q — Punch Score</h1>
 
@@ -488,6 +536,7 @@
       <div class="lbl">Next</div>
       <div class="num" id="countdown">2.0</div>
     </div>
+    <div class="start-countdown" id="startCountdown">3</div>
 
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="skeletonCanvas"></canvas>
@@ -504,6 +553,7 @@
     <div class="scorebox">
       <div class="lbl">Punch Score</div>
       <div class="num" id="score">0</div>
+      <div class="cross-status" id="crossStatus">FORM: WAITING</div>
     </div>
   </div>
 
@@ -529,9 +579,16 @@
 
   <script>
     const DEFAULT_MAX_SCORE = 999;
+    let cameraOpening = false;
+    let cameraStarted = false;
 
-    async function openCam() {
+    async function openCam(options = {}) {
+      if (cameraOpening || cameraStarted) return;
+      cameraOpening = true;
+
       try {
+        document.querySelector('#ph p').textContent = 'Starting camera...';
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false
@@ -543,8 +600,15 @@
         startPoseTracking(v);
 
         document.getElementById('ph').style.display = 'none';
+        cameraStarted = true;
       } catch (e) {
-        alert('Camera error: ' + e.name + ' — ' + e.message);
+        document.querySelector('#ph p').textContent = 'Camera permission needed';
+        document.getElementById('openBtn').textContent = 'Open Webcam';
+        if (!options.silent) {
+          alert('Camera error: ' + e.name + ' — ' + e.message);
+        }
+      } finally {
+        cameraOpening = false;
       }
     }
 
@@ -552,6 +616,9 @@
     let maxScore = DEFAULT_MAX_SCORE;
     let startReady = false;
     let pollTimer = null;
+    let countdownSmoothTimer = null;
+    let countdownAnchorValue = 0;
+    let countdownAnchorTime = Date.now();
     let poseTracker = null;
     let poseBusy = false;
     let trainingStartTime = 0;
@@ -561,6 +628,12 @@
     let scoreTotal = 0;
     let latestDetails = {};
     let latestMetrics = {};
+    let latestPoseResult = null;
+    let latestInvalidPunch = false;
+    let currentPunchPhase = false;
+    let punchPoseSeries = [];
+    let lastCompletedInvalidPunch = false;
+    let lastCompletedCrossEval = { isCross: true, reason: 'good' };
 
     document.getElementById('backButton').addEventListener('click', () => {
       window.location.href = 'mode.html';
@@ -604,8 +677,9 @@
 
       if (!results.poseLandmarks || typeof drawConnectors !== 'function') return;
 
+      const skeletonColor = currentPunchPhase && latestInvalidPunch ? '#ff6b6b' : '#00ff7f';
       drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-        color: '#00ff7f',
+        color: skeletonColor,
         lineWidth: 4
       });
       drawLandmarks(ctx, results.poseLandmarks, {
@@ -613,6 +687,121 @@
         lineWidth: 2,
         radius: 3
       });
+    }
+
+    function getLandmark(results, index) {
+      return results.poseLandmarks?.[index] || null;
+    }
+
+    function hasUsableLandmark(point) {
+      return point
+        && Number.isFinite(point.x)
+        && Number.isFinite(point.y)
+        && Number.isFinite(point.z)
+        && (point.visibility === undefined || point.visibility >= 0.45);
+    }
+
+    function makeArmSample(results, side) {
+      const shoulderIndex = side === 'right' ? POSE_LANDMARKS.RIGHT_SHOULDER : POSE_LANDMARKS.LEFT_SHOULDER;
+      const elbowIndex = side === 'right' ? POSE_LANDMARKS.RIGHT_ELBOW : POSE_LANDMARKS.LEFT_ELBOW;
+      const wristIndex = side === 'right' ? POSE_LANDMARKS.RIGHT_WRIST : POSE_LANDMARKS.LEFT_WRIST;
+      const shoulder = getLandmark(results, shoulderIndex);
+      const elbow = getLandmark(results, elbowIndex);
+      const wrist = getLandmark(results, wristIndex);
+
+      if (!hasUsableLandmark(shoulder) || !hasUsableLandmark(elbow) || !hasUsableLandmark(wrist)) {
+        return null;
+      }
+
+      const verticalOffset = wrist.y - shoulder.y;
+      const horizontalOffset = wrist.x - shoulder.x;
+      const depthReach = shoulder.z - wrist.z;
+
+      return {
+        side,
+        time: performance.now(),
+        x: wrist.x,
+        y: wrist.y,
+        z: wrist.z,
+        horizontalOffset,
+        verticalOffset,
+        depthReach
+      };
+    }
+
+    function addPunchPoseSample(results) {
+      const sample = {
+        left: makeArmSample(results, 'left'),
+        right: makeArmSample(results, 'right')
+      };
+
+      if (!sample.left && !sample.right) return;
+
+      punchPoseSeries.push(sample);
+      if (punchPoseSeries.length > 45) {
+        punchPoseSeries.shift();
+      }
+    }
+
+    function evaluateArmSeries(samples, side) {
+      const armSamples = samples.map((sample) => sample[side]).filter(Boolean);
+
+      if (armSamples.length < 3) {
+        return { isCross: false, reason: 'no pose', motionGain: 0 };
+      }
+
+      const peakIndex = armSamples.reduce((bestIndex, sample, index) => (
+        sample.depthReach > armSamples[bestIndex].depthReach ? index : bestIndex
+      ), 0);
+
+      const start = armSamples[0];
+      const peak = armSamples[peakIndex];
+      const forwardGain = peak.depthReach - start.depthReach;
+      const xRange = Math.max(...armSamples.map((sample) => sample.x)) - Math.min(...armSamples.map((sample) => sample.x));
+      const yRange = Math.max(...armSamples.map((sample) => sample.y)) - Math.min(...armSamples.map((sample) => sample.y));
+      const xDrift = Math.abs(peak.x - start.x);
+      const yDrift = Math.abs(peak.y - start.y);
+
+      const isStraightPath = xRange <= 0.42 && yRange <= 0.32 && xDrift <= 0.28 && yDrift <= 0.24;
+
+      const isCross = isStraightPath;
+      const reason = isStraightPath ? 'good' : 'punch straight';
+
+      return { isCross, reason, motionGain: forwardGain };
+    }
+
+    function evaluateCrossPunchSeries(samples) {
+      const leftEval = evaluateArmSeries(samples, 'left');
+      const rightEval = evaluateArmSeries(samples, 'right');
+      if (leftEval.isCross || rightEval.isCross) {
+        return { isCross: true, reason: 'good' };
+      }
+      return rightEval.motionGain >= leftEval.motionGain ? rightEval : leftEval;
+    }
+
+    function updateCrossStatus() {
+      const statusEl = document.getElementById('crossStatus');
+      if (!currentPunchPhase) {
+        statusEl.textContent = lastCompletedInvalidPunch
+          ? `FORM: ${lastCompletedCrossEval.reason.toUpperCase()}`
+          : 'FORM: WAITING';
+        statusEl.classList.toggle('valid', false);
+        statusEl.classList.toggle('invalid', lastCompletedInvalidPunch);
+        return;
+      }
+
+      latestInvalidPunch = false;
+      statusEl.textContent = punchPoseSeries.length > 0 ? 'FORM: TRACKING' : 'FORM: NO POSE';
+      statusEl.classList.remove('valid', 'invalid');
+    }
+
+    function onPoseResults(results) {
+      latestPoseResult = results;
+      if (currentPunchPhase) {
+        addPunchPoseSample(results);
+      }
+      updateCrossStatus();
+      drawSkeleton(results);
     }
 
     function startPoseTracking(video) {
@@ -628,7 +817,7 @@
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
       });
-      poseTracker.onResults(drawSkeleton);
+      poseTracker.onResults(onPoseResults);
 
       async function frame() {
         resizeSkeletonCanvas(video);
@@ -700,6 +889,20 @@
         signalBox.classList.add('resting');
         countdownBox.classList.add('resting');
       }
+
+      if (!currentPunchPhase && isPunching) {
+        punchPoseSeries = [];
+        latestInvalidPunch = false;
+        lastCompletedInvalidPunch = false;
+        lastCompletedCrossEval = { isCross: true, reason: 'good' };
+      } else if (currentPunchPhase && !isPunching) {
+        lastCompletedCrossEval = evaluateCrossPunchSeries(punchPoseSeries);
+        lastCompletedInvalidPunch = !lastCompletedCrossEval.isCross;
+        latestInvalidPunch = lastCompletedInvalidPunch;
+      }
+
+      currentPunchPhase = isPunching;
+      updateCrossStatus();
     }
 
     function updateCountdown(data) {
@@ -708,8 +911,22 @@
       const nextLabel = state === 'punching' ? 'Rest In' : 'Punch In';
 
       document.querySelector('#countdown-box .lbl').textContent = nextLabel;
-      document.getElementById('countdown').textContent =
-        Number.isFinite(countdown) ? countdown.toFixed(1) : '0.0';
+      if (Number.isFinite(countdown)) {
+        countdownAnchorValue = countdown;
+        countdownAnchorTime = Date.now();
+      }
+      renderSmoothCountdown();
+    }
+
+    function renderSmoothCountdown() {
+      const elapsed = (Date.now() - countdownAnchorTime) / 1000;
+      const displayValue = Math.max(0, countdownAnchorValue - elapsed);
+      document.getElementById('countdown').textContent = displayValue.toFixed(1);
+    }
+
+    function startSmoothCountdown() {
+      if (countdownSmoothTimer) return;
+      countdownSmoothTimer = setInterval(renderSmoothCountdown, 50);
     }
 
     function renderDetails(details) {
@@ -764,8 +981,9 @@
           document.getElementById('ts').textContent = '—';
         }
 
+        const displayedScore = getDisplayedPunchScore(d);
         if (d.latest_score !== undefined) {
-          updateScore(d.latest_score);
+          updateScore(displayedScore);
         }
 
         const punchId = Number(d.punch_id) || 0;
@@ -775,7 +993,7 @@
         } else if (punchId > lastPunchId) {
           lastPunchId = punchId;
           punchCount += 1;
-          scoreTotal += Number(d.latest_score) || 0;
+          scoreTotal += displayedScore;
         }
 
         renderDetails(d.details);
@@ -783,6 +1001,16 @@
       } catch (e) {
         updateState('resting');
       }
+    }
+
+    function getDisplayedPunchScore(data) {
+      const state = String(data.state || 'resting').toLowerCase();
+      const rawScore = Number.isFinite(Number(data.latest_score)) ? Number(data.latest_score) : 0;
+      const isBadForm = state === 'punching' ? latestInvalidPunch : lastCompletedInvalidPunch;
+      if (isBadForm) {
+        return Math.min(rawScore, 100);
+      }
+      return rawScore;
     }
 
     function runStartCountdown() {
@@ -806,11 +1034,13 @@
           fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
           poll();
           pollTimer = setInterval(poll, 300);
+          startSmoothCountdown();
         }, 650);
         clearInterval(interval);
       }, 1000);
     }
 
+    openCam({ silent: true });
     runStartCountdown();
   </script>
 </body>
