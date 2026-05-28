@@ -163,6 +163,19 @@
       color: #ff3d3d;
     }
 
+    .start-countdown {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, .86);
+      color: #ffd326;
+      font-size: clamp(96px, 18vw, 220px);
+      font-weight: 900;
+      text-shadow: 0 0 28px rgba(255, 211, 38, .42);
+    }
+
     @keyframes pulsePunch {
       from {
         transform: scale(1);
@@ -386,6 +399,8 @@
 </head>
 
 <body>
+  <div class="start-countdown" id="startCountdown">3</div>
+
   <h1>UNO Q — Punch Score</h1>
 
   <div class="cam-wrap resting" id="cam-wrap">
@@ -446,6 +461,8 @@
 
     let currentScore = 0;
     let maxScore = DEFAULT_MAX_SCORE;
+    let startReady = false;
+    let pollTimer = null;
 
     function updateScore(newScore) {
       const safeScore = Number.isFinite(Number(newScore)) ? Number(newScore) : 0;
@@ -538,6 +555,8 @@
     }
 
     async function poll() {
+      if (!startReady) return;
+
       try {
         const r = await fetch('/latest', { cache: 'no-store' });
         const d = await r.json();
@@ -570,8 +589,32 @@
       }
     }
 
-    setInterval(poll, 300);
-    poll();
+    function runStartCountdown() {
+      const overlay = document.getElementById('startCountdown');
+      let count = 3;
+      overlay.textContent = count;
+
+      const interval = setInterval(() => {
+        count -= 1;
+
+        if (count > 0) {
+          overlay.textContent = count;
+          return;
+        }
+
+        overlay.textContent = 'START';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          startReady = true;
+          fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
+          poll();
+          pollTimer = setInterval(poll, 300);
+        }, 650);
+        clearInterval(interval);
+      }, 1000);
+    }
+
+    runStartCountdown();
   </script>
 </body>
 </html>

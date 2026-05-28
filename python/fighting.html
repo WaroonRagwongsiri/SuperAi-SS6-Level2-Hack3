@@ -12,6 +12,7 @@
     body {
       margin: 0;
       min-height: 100vh;
+      overflow: hidden;
       background: #080808;
       color: #f6f6f6;
       font-family: Arial, Helvetica, sans-serif;
@@ -19,11 +20,11 @@
 
     .screen {
       width: 100vw;
-      min-height: 100vh;
-      padding: 14px;
+      height: 100vh;
+      padding: 10px;
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 12px;
+      grid-template-rows: auto minmax(0, .8fr) auto;
+      gap: 8px;
     }
 
     .hud {
@@ -90,16 +91,29 @@
       line-height: 1;
     }
 
+    .start-countdown {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, .86);
+      color: #ffd326;
+      font-size: clamp(96px, 18vw, 220px);
+      font-weight: 900;
+      text-shadow: 0 0 28px rgba(255, 211, 38, .42);
+    }
+
     .arena {
       min-height: 0;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
+      gap: 10px;
     }
 
     .side {
       position: relative;
-      min-height: 340px;
+      min-height: 0;
       overflow: hidden;
       border: 3px solid #222;
       background: #111;
@@ -156,12 +170,12 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
     }
 
     .stat {
-      padding: 12px;
+      padding: 8px 10px;
       border: 1px solid #282828;
       background: #101010;
       text-align: center;
@@ -175,13 +189,31 @@
     }
 
     .stat-value {
-      margin-top: 4px;
+      margin-top: 2px;
       color: #ffd326;
-      font-size: 30px;
+      font-size: 24px;
       font-weight: 900;
     }
 
+    .detail-stat {
+      display: none;
+    }
+
+    .detail-stat.visible {
+      display: block;
+    }
+
     @media (max-width: 760px) {
+      body {
+        overflow: auto;
+      }
+
+      .screen {
+        height: auto;
+        min-height: 100vh;
+        grid-template-rows: auto auto auto;
+      }
+
       .hud {
         grid-template-columns: 1fr;
       }
@@ -194,6 +226,10 @@
         grid-template-columns: 1fr;
       }
 
+      .side {
+        min-height: 220px;
+      }
+
       .stats {
         grid-template-columns: 1fr;
       }
@@ -201,6 +237,8 @@
   </style>
 </head>
 <body>
+  <div class="start-countdown" id="startCountdown">3</div>
+
   <main class="screen">
     <section class="hud">
       <div class="health-panel">
@@ -248,6 +286,34 @@
         <div class="stat-label">LAST DAMAGE</div>
         <div class="stat-value" id="lastDamage">0</div>
       </div>
+      <div class="stat">
+        <div class="stat-label">LAST SCORE</div>
+        <div class="stat-value" id="lastScore">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="straightness">
+        <div class="stat-label">STRAIGHT</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="peak_a_g">
+        <div class="stat-label">POWER</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="snap">
+        <div class="stat-label">SNAP</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="wrist_turn_deg">
+        <div class="stat-label">WRIST</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="peak_speed">
+        <div class="stat-label">SPEED</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat detail-stat" data-score-key="duration">
+        <div class="stat-label">TIME</div>
+        <div class="stat-value">0</div>
+      </div>
     </section>
   </main>
 
@@ -269,6 +335,8 @@
     let punchCount = 0;
     let scoreTotal = 0;
     let fightEnded = false;
+    let startReady = false;
+    let pollTimer = null;
 
     document.getElementById('enemyName').textContent = enemy.name;
     document.getElementById('enemyLabel').textContent = enemy.name;
@@ -325,7 +393,20 @@
       });
     }
 
-    function applyPunch(score) {
+    function updateFullScoring(details) {
+      if (!details || Object.keys(details).length === 0) return;
+
+      document.querySelectorAll('.detail-stat').forEach((item) => {
+        const key = item.dataset.scoreKey;
+        const value = Number(details[key]);
+        item.classList.toggle('visible', Number.isFinite(value));
+        if (Number.isFinite(value)) {
+          item.querySelector('.stat-value').textContent = Math.round(value);
+        }
+      });
+    }
+
+    function applyPunch(score, details) {
       const safeScore = Number.isFinite(Number(score)) ? Number(score) : 0;
       const damage = Math.max(1, Math.round(safeScore / 10));
 
@@ -336,6 +417,8 @@
       document.getElementById('punchCount').textContent = punchCount;
       document.getElementById('avgScore').textContent = Math.round(scoreTotal / punchCount);
       document.getElementById('lastDamage').textContent = damage;
+      document.getElementById('lastScore').textContent = Math.round(safeScore);
+      updateFullScoring(details);
       setHealth();
 
       if (enemyHealth <= 0) {
@@ -344,7 +427,7 @@
     }
 
     async function poll() {
-      if (fightEnded) return;
+      if (fightEnded || !startReady) return;
 
       try {
         const response = await fetch('/latest', { cache: 'no-store' });
@@ -365,18 +448,41 @@
 
         if (punchId > lastPunchId) {
           lastPunchId = punchId;
-          applyPunch(data.latest_score);
+          applyPunch(data.latest_score, data.details);
         }
       } catch (e) {
         document.getElementById('phase').textContent = 'OFFLINE';
       }
     }
 
+    function runStartCountdown() {
+      const overlay = document.getElementById('startCountdown');
+      let count = 3;
+      overlay.textContent = count;
+
+      const interval = setInterval(() => {
+        count -= 1;
+
+        if (count > 0) {
+          overlay.textContent = count;
+          return;
+        }
+
+        overlay.textContent = 'FIGHT';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          startReady = true;
+          fetch('/timer-mode/fight', { method: 'POST', keepalive: true }).catch(() => {});
+          poll();
+          pollTimer = setInterval(poll, 250);
+        }, 650);
+        clearInterval(interval);
+      }, 1000);
+    }
+
     document.getElementById('openCamera').addEventListener('click', openCam);
-    fetch('/timer-mode/fight', { method: 'POST', keepalive: true }).catch(() => {});
     setHealth();
-    setInterval(poll, 250);
-    poll();
+    runStartCountdown();
   </script>
 </body>
 </html>
