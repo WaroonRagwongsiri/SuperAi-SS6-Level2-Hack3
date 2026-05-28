@@ -3,6 +3,7 @@ import pandas as pd
 from scipy.spatial.transform import Rotation as R
 
 G = 9.81
+MAX_SCORE = 999.0
 
 DEFAULT_REFERENCE = {
     'straightness':   (0.40, 0.90), 
@@ -23,12 +24,13 @@ METRIC_WEIGHTS = {
 }
 
 def _scale(value, lo, hi):
-    if hi == lo: return 50.0
-    s = 100 * (value - lo) / (hi - lo)
-    return float(np.clip(s, 0, 100))
+    if hi == lo: return MAX_SCORE / 2
+    s = MAX_SCORE * (value - lo) / (hi - lo)
+    return float(np.clip(s, 0, MAX_SCORE))
 
 def _gaussian(value, ideal, sigma):
-    return float(100 * np.exp(-((value - ideal) ** 2) / (2 * sigma ** 2)))
+    s = MAX_SCORE * np.exp(-((value - ideal) ** 2) / (2 * sigma ** 2))
+    return float(np.clip(s, 0, MAX_SCORE))
 
 def score_punch(rep_df, reference=None, weights=None, return_trajectory=False):
     ref = {**DEFAULT_REFERENCE, **(reference or {})}
@@ -38,7 +40,7 @@ def score_punch(rep_df, reference=None, weights=None, return_trajectory=False):
         rep_df = rep_df[rep_df['phase'] == 'punch']
 
     if len(rep_df) < 5:
-        return dict(overall=0.0, metrics={}, scores={}, error='too few samples')
+        return dict(overall=0.0, metrics={}, scores={}, max_score=MAX_SCORE, error='too few samples')
 
     rep_df = rep_df.rename(columns={'gx_dps.1': 'gz_dps'})
     rep_df = rep_df.sort_values('phase_elapsed_ms').reset_index(drop=True)
@@ -109,7 +111,8 @@ def score_punch(rep_df, reference=None, weights=None, return_trajectory=False):
 
     total_w = sum(w.values())
     overall = sum(scores[k] * w[k] for k in scores) / total_w
+    overall = float(np.clip(overall, 0, MAX_SCORE))
 
-    result = dict(overall=round(overall, 1), metrics=metrics, scores=scores)
+    result = dict(overall=round(overall, 1), metrics=metrics, scores=scores, max_score=MAX_SCORE)
     if return_trajectory: result['trajectory'] = dict(t=t, pos=pos, vel=vel, ext_idx=ext_idx)
     return result
