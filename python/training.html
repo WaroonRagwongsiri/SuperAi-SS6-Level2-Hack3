@@ -24,6 +24,19 @@
       gap: 16px;
     }
 
+    .back-button {
+      position: fixed;
+      top: 12px;
+      left: 14px;
+      z-index: 60;
+      padding: 5px 12px;
+      border: 2px solid #0059ff;
+      background: #ff3a1f;
+      color: #000;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
     h1 {
       font-size: 32px;
       font-weight: 900;
@@ -59,6 +72,51 @@
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    #skeletonCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 8;
+    }
+
+    .cross-demo {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 14;
+      width: min(30vw, 240px);
+      min-width: 150px;
+      border: 2px solid rgba(255, 212, 0, .85);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #050505;
+      box-shadow: 0 0 22px rgba(255, 212, 0, .28);
+      pointer-events: none;
+    }
+
+    .cross-demo img {
+      width: 100%;
+      display: block;
+    }
+
+    .cross-demo-label {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .72);
+      color: #ffd400;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-align: center;
+      text-transform: uppercase;
     }
 
     .placeholder {
@@ -325,6 +383,24 @@
       flex-shrink: 0;
     }
 
+    .training-actions {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .end-training-button {
+      padding: 10px 20px;
+      border: 2px solid #ff3d3d;
+      border-radius: 8px;
+      background: #111;
+      color: #ff3d3d;
+      font-weight: 900;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
     /* Details Grid */
     .details-grid {
       width: 100%;
@@ -396,10 +472,13 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 
 <body>
   <div class="start-countdown" id="startCountdown">3</div>
+  <button class="back-button" id="backButton" type="button">back</button>
 
   <h1>UNO Q — Punch Score</h1>
 
@@ -411,6 +490,11 @@
     </div>
 
     <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="skeletonCanvas"></canvas>
+    <div class="cross-demo" aria-hidden="true">
+      <img src="images/punch_example.gif" alt="">
+      <div class="cross-demo-label">Cross Punch</div>
+    </div>
 
     <div class="placeholder" id="ph">
       <p>No camera feed</p>
@@ -437,6 +521,10 @@
     <div class="score-num" id="score-inline">0</div>
   </div>
 
+  <div class="training-actions">
+    <button class="end-training-button" id="endTrainingButton" type="button">End Training</button>
+  </div>
+
   <div class="details-grid" id="details-grid"></div>
 
   <script>
@@ -452,6 +540,7 @@
         const v = document.getElementById('webcam');
         v.srcObject = stream;
         await v.play();
+        startPoseTracking(v);
 
         document.getElementById('ph').style.display = 'none';
       } catch (e) {
@@ -463,6 +552,98 @@
     let maxScore = DEFAULT_MAX_SCORE;
     let startReady = false;
     let pollTimer = null;
+    let poseTracker = null;
+    let poseBusy = false;
+    let trainingStartTime = 0;
+    let lastPunchId = 0;
+    let hasBaselinePunchId = false;
+    let punchCount = 0;
+    let scoreTotal = 0;
+    let latestDetails = {};
+    let latestMetrics = {};
+
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = 'mode.html';
+    });
+
+    document.getElementById('endTrainingButton').addEventListener('click', () => {
+      const elapsedSeconds = trainingStartTime
+        ? Math.round((Date.now() - trainingStartTime) / 1000)
+        : 0;
+      const averageScore = punchCount > 0 ? Math.round(scoreTotal / punchCount) : 0;
+
+      localStorage.setItem('trainingResult', JSON.stringify({
+        elapsedSeconds,
+        punchCount,
+        averageScore,
+        totalScore: Math.round(scoreTotal),
+        details: latestDetails,
+        metrics: latestMetrics,
+        endedAt: Date.now()
+      }));
+
+      window.location.href = 'training_result.html';
+    });
+
+    function resizeSkeletonCanvas(video) {
+      const canvas = document.getElementById('skeletonCanvas');
+      const rect = video.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    function drawSkeleton(results) {
+      const canvas = document.getElementById('skeletonCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!results.poseLandmarks || typeof drawConnectors !== 'function') return;
+
+      drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+        color: '#00ff7f',
+        lineWidth: 4
+      });
+      drawLandmarks(ctx, results.poseLandmarks, {
+        color: '#ff3158',
+        lineWidth: 2,
+        radius: 3
+      });
+    }
+
+    function startPoseTracking(video) {
+      if (poseTracker || typeof Pose !== 'function') return;
+
+      poseTracker = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+      poseTracker.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      poseTracker.onResults(drawSkeleton);
+
+      async function frame() {
+        resizeSkeletonCanvas(video);
+
+        if (!poseBusy && video.readyState >= 2) {
+          poseBusy = true;
+          await poseTracker.send({ image: video }).catch(() => {});
+          poseBusy = false;
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      frame();
+    }
 
     function updateScore(newScore) {
       const safeScore = Number.isFinite(Number(newScore)) ? Number(newScore) : 0;
@@ -538,9 +719,13 @@
         return;
       }
 
+      latestDetails = details;
+
       grid.innerHTML = '';
 
       for (const [key, val] of Object.entries(details)) {
+        if (key === 'duration') continue;
+
         const cleanLabel = key.replace(/_/g, ' ');
         const numberVal = Number(val);
         const displayVal = Number.isFinite(numberVal) ? Math.round(numberVal) : val;
@@ -564,6 +749,7 @@
         updateState(d.state);
         updateCountdown(d);
         maxScore = Number.isFinite(Number(d.max_score)) ? Number(d.max_score) : DEFAULT_MAX_SCORE;
+        latestMetrics = d.metrics || latestMetrics;
 
         const raw = d.raw || '';
         const dot = document.getElementById('dot');
@@ -580,6 +766,16 @@
 
         if (d.latest_score !== undefined) {
           updateScore(d.latest_score);
+        }
+
+        const punchId = Number(d.punch_id) || 0;
+        if (!hasBaselinePunchId) {
+          lastPunchId = punchId;
+          hasBaselinePunchId = true;
+        } else if (punchId > lastPunchId) {
+          lastPunchId = punchId;
+          punchCount += 1;
+          scoreTotal += Number(d.latest_score) || 0;
         }
 
         renderDetails(d.details);
@@ -606,6 +802,7 @@
         setTimeout(() => {
           overlay.style.display = 'none';
           startReady = true;
+          trainingStartTime = Date.now();
           fetch('/timer-mode/practice', { method: 'POST', keepalive: true }).catch(() => {});
           poll();
           pollTimer = setInterval(poll, 300);

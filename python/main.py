@@ -22,6 +22,7 @@ latest_msg = {
     "punch_id": 0,
     "latest_score": 0.0,
     "max_score": MAX_SCORE,
+    "metrics": {},
     "details": {},
     "cycle_time": 0.0
 }
@@ -31,7 +32,7 @@ latest_msg = {
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "fight_scores.db")
-RESTING_SEC = 5.0
+RESTING_SEC = 2.0
 FIGHT_RESTING_SEC = 1.0
 PUNCHING_SEC = 2.0
 cycle_start_time = time.time()
@@ -167,9 +168,11 @@ def score_current_punch():
 
         score_val = result.get("overall", 0.0)
         detail_scores = result.get("scores", {})
+        metrics = result.get("metrics", {})
 
         latest_msg["latest_score"] = score_val
         latest_msg["max_score"] = result.get("max_score", MAX_SCORE)
+        latest_msg["metrics"] = metrics
         latest_msg["details"] = detail_scores
         latest_msg["punch_id"] += 1
 

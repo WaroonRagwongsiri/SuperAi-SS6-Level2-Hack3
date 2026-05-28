@@ -18,6 +18,14 @@
       font-family: Arial, Helvetica, sans-serif;
     }
 
+    body.resting {
+      background: #06140b;
+    }
+
+    body.punching {
+      background: #170606;
+    }
+
     .screen {
       width: 100vw;
       height: 100vh;
@@ -77,6 +85,16 @@
       text-align: center;
     }
 
+    body.resting .timer {
+      border-color: #35e875;
+      box-shadow: 0 0 22px rgba(53, 232, 117, .28);
+    }
+
+    body.punching .timer {
+      border-color: #ff3333;
+      box-shadow: 0 0 28px rgba(255, 51, 51, .38);
+    }
+
     .phase {
       color: #aaa;
       font-size: 12px;
@@ -89,6 +107,14 @@
       font-size: 36px;
       font-weight: 900;
       line-height: 1;
+    }
+
+    body.resting .countdown {
+      color: #35e875;
+    }
+
+    body.punching .countdown {
+      color: #ff3333;
     }
 
     .start-countdown {
@@ -119,12 +145,31 @@
       background: #111;
     }
 
+    body.resting .side:first-child {
+      border-color: #35e875;
+      box-shadow: 0 0 22px rgba(53, 232, 117, .18);
+    }
+
+    body.punching .side:first-child {
+      border-color: #ff3333;
+      box-shadow: 0 0 28px rgba(255, 51, 51, .3);
+    }
+
     video,
     .enemy-image {
       width: 100%;
       height: 100%;
       display: block;
       object-fit: cover;
+    }
+
+    #skeletonCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3;
     }
 
     .camera-placeholder {
@@ -181,6 +226,14 @@
       text-align: center;
     }
 
+    body.resting .stat {
+      border-color: rgba(53, 232, 117, .28);
+    }
+
+    body.punching .stat {
+      border-color: rgba(255, 51, 51, .36);
+    }
+
     .stat-label {
       color: #888;
       font-size: 12px;
@@ -235,6 +288,8 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 <body>
   <div class="start-countdown" id="startCountdown">3</div>
@@ -260,6 +315,7 @@
     <section class="arena">
       <div class="side">
         <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="skeletonCanvas"></canvas>
         <div class="camera-placeholder" id="cameraPlaceholder">
           <button class="open-camera" id="openCamera" type="button">Open Webcam</button>
         </div>
@@ -310,10 +366,6 @@
         <div class="stat-label">SPEED</div>
         <div class="stat-value">0</div>
       </div>
-      <div class="stat detail-stat" data-score-key="duration">
-        <div class="stat-label">TIME</div>
-        <div class="stat-value">0</div>
-      </div>
     </section>
   </main>
 
@@ -337,6 +389,11 @@
     let fightEnded = false;
     let startReady = false;
     let pollTimer = null;
+    let poseTracker = null;
+    let poseBusy = false;
+    let latestDetails = {};
+    let latestMetrics = {};
+    let fightStartTime = 0;
 
     document.getElementById('enemyName').textContent = enemy.name;
     document.getElementById('enemyLabel').textContent = enemy.name;
@@ -355,10 +412,71 @@
         const video = document.getElementById('webcam');
         video.srcObject = stream;
         await video.play();
+        startPoseTracking(video);
         document.getElementById('cameraPlaceholder').style.display = 'none';
       } catch (e) {
         alert('Camera error: ' + e.name + ' - ' + e.message);
       }
+    }
+
+    function resizeSkeletonCanvas(video) {
+      const canvas = document.getElementById('skeletonCanvas');
+      const rect = video.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    function drawSkeleton(results) {
+      const canvas = document.getElementById('skeletonCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!results.poseLandmarks || typeof drawConnectors !== 'function') return;
+
+      drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+        color: '#00ff7f',
+        lineWidth: 4
+      });
+      drawLandmarks(ctx, results.poseLandmarks, {
+        color: '#ff3158',
+        lineWidth: 2,
+        radius: 3
+      });
+    }
+
+    function startPoseTracking(video) {
+      if (poseTracker || typeof Pose !== 'function') return;
+
+      poseTracker = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+      poseTracker.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      poseTracker.onResults(drawSkeleton);
+
+      async function frame() {
+        resizeSkeletonCanvas(video);
+
+        if (!poseBusy && video.readyState >= 2) {
+          poseBusy = true;
+          await poseTracker.send({ image: video }).catch(() => {});
+          poseBusy = false;
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      frame();
     }
 
     function finishFight() {
@@ -366,13 +484,19 @@
       fightEnded = true;
 
       const averageScore = punchCount > 0 ? Math.round(scoreTotal / punchCount) : 0;
+      const elapsedSeconds = fightStartTime
+        ? Math.round((Date.now() - fightStartTime) / 1000)
+        : 0;
       const playerName = localStorage.getItem('boxingPlayerName') || 'Optimizer01';
       const result = {
         name: playerName,
         enemyName: enemy.name,
+        elapsedSeconds,
         punchCount,
         averageScore,
         totalScore: Math.round(scoreTotal),
+        details: latestDetails,
+        metrics: latestMetrics,
         won: enemyHealth <= 0,
         endedAt: Date.now()
       };
@@ -395,6 +519,7 @@
 
     function updateFullScoring(details) {
       if (!details || Object.keys(details).length === 0) return;
+      latestDetails = details;
 
       document.querySelectorAll('.detail-stat').forEach((item) => {
         const key = item.dataset.scoreKey;
@@ -406,9 +531,10 @@
       });
     }
 
-    function applyPunch(score, details) {
+    function applyPunch(score, details, metrics) {
       const safeScore = Number.isFinite(Number(score)) ? Number(score) : 0;
       const damage = Math.max(1, Math.round(safeScore / 10));
+      latestMetrics = metrics || {};
 
       punchCount += 1;
       scoreTotal += safeScore;
@@ -433,9 +559,12 @@
         const response = await fetch('/latest', { cache: 'no-store' });
         const data = await response.json();
         const state = String(data.state || 'resting').toUpperCase();
+        const stateClass = state.toLowerCase();
         const countdown = Number(data.countdown);
 
         document.getElementById('phase').textContent = state;
+        document.body.classList.toggle('resting', stateClass === 'resting');
+        document.body.classList.toggle('punching', stateClass === 'punching');
         document.getElementById('countdown').textContent =
           Number.isFinite(countdown) ? countdown.toFixed(1) : '0.0';
 
@@ -448,7 +577,7 @@
 
         if (punchId > lastPunchId) {
           lastPunchId = punchId;
-          applyPunch(data.latest_score, data.details);
+          applyPunch(data.latest_score, data.details, data.metrics);
         }
       } catch (e) {
         document.getElementById('phase').textContent = 'OFFLINE';
@@ -472,6 +601,7 @@
         setTimeout(() => {
           overlay.style.display = 'none';
           startReady = true;
+          fightStartTime = Date.now();
           fetch('/timer-mode/fight', { method: 'POST', keepalive: true }).catch(() => {});
           poll();
           pollTimer = setInterval(poll, 250);
@@ -481,6 +611,7 @@
     }
 
     document.getElementById('openCamera').addEventListener('click', openCam);
+    document.body.classList.add('resting');
     setHealth();
     runStartCountdown();
   </script>

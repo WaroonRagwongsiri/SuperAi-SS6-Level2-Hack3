@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fight Result</title>
+  <title>Training Result</title>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -91,11 +91,6 @@
       border-color: #ff1616;
       color: #ff1616;
     }
-
-    .purple {
-      border-color: #a861ff;
-      color: #8f2bff;
-    }
   </style>
 </head>
 <body>
@@ -112,17 +107,14 @@
     <section class="metrics-grid" id="metricGrid"></section>
 
     <section class="actions">
-      <button class="action danger" id="againButton" type="button">เล่นอีกครั้ง</button>
+      <button class="action danger" id="againButton" type="button">ฝึกอีกครั้ง</button>
+      <button class="action" id="modeButton" type="button">กลับเลือกโหมด</button>
       <button class="action" id="homeButton" type="button">กลับหน้าหลัก</button>
-      <button class="action purple" id="leaderboardButton" type="button">Leader Board</button>
     </section>
   </main>
 
   <script>
-    const result = JSON.parse(localStorage.getItem('fightResult') || '{}');
-
-    document.getElementById('punchCount').textContent = result.punchCount || 0;
-    document.getElementById('averageScore').textContent = result.averageScore || 0;
+    const result = JSON.parse(localStorage.getItem('trainingResult') || '{}');
 
     function formatTime(seconds) {
       const safeSeconds = Math.max(0, Number(seconds) || 0);
@@ -130,8 +122,6 @@
       const remainingSeconds = Math.floor(safeSeconds % 60);
       return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
     }
-
-    document.getElementById('elapsedTime').textContent = formatTime(result.elapsedSeconds);
 
     function labelFor(key) {
       return key.replace(/_/g, ' ');
@@ -161,19 +151,22 @@
       }).join('');
     }
 
+    document.getElementById('elapsedTime').textContent = formatTime(result.elapsedSeconds);
+    document.getElementById('punchCount').textContent = result.punchCount || 0;
+    document.getElementById('averageScore').textContent = result.averageScore || 0;
     renderGrid('scoreGrid', result.details, ' score');
     renderGrid('metricGrid', result.metrics);
 
     document.getElementById('againButton').addEventListener('click', () => {
-      window.location.href = 'fight_mode.html';
+      window.location.href = 'training.html';
+    });
+
+    document.getElementById('modeButton').addEventListener('click', () => {
+      window.location.href = 'mode.html';
     });
 
     document.getElementById('homeButton').addEventListener('click', () => {
       window.location.href = '/';
-    });
-
-    document.getElementById('leaderboardButton').addEventListener('click', () => {
-      window.location.href = 'leaderboard.html';
     });
   </script>
 </body>
