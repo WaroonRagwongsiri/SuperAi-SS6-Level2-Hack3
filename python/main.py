@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 import uvicorn
 from score import MAX_SCORE, score_punch
+from punch_model import TorchScriptPunchPredictor
 
 # =========================
 # UI STATE
@@ -32,6 +33,8 @@ latest_msg = {
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "fight_scores.db")
+MODEL_DIR = os.path.join(BASE_DIR, "model_output")
+PUNCH_MODEL = TorchScriptPunchPredictor(MODEL_DIR)
 RESTING_SEC = 2.0
 FIGHT_RESTING_SEC = 1.0
 PUNCHING_SEC = 2.0
@@ -157,14 +160,28 @@ def score_current_punch():
             "az_g",
             "gx_dps",
             "gy_dps",
-            "gz_dps"
+            "gz_dps",
+            "peak"
         ]
     )
 
     df["phase"] = "punch"
 
     try:
-        result = score_punch(df)
+        model_samples = df[
+            ["ax_g", "ay_g", "az_g", "gx_dps", "gy_dps", "gz_dps", "peak"]
+        ].to_dict("records")
+        result = PUNCH_MODEL.score_samples(model_samples)
+
+        if result.get("error") == "model predicted rest":
+            latest_msg["metrics"] = result.get("metrics", {})
+            latest_msg["details"] = result.get("scores", {})
+            print(
+                "Punch ignored: model predicted rest "
+                f"(prob={latest_msg['metrics'].get('probability', 0.0):.3f})"
+            )
+            punch_buffer = []
+            return
 
         score_val = result.get("overall", 0.0)
         detail_scores = result.get("scores", {})
@@ -176,8 +193,9 @@ def score_current_punch():
         latest_msg["details"] = detail_scores
         latest_msg["punch_id"] += 1
 
-        print(f">>>> PUNCH SCORED: {score_val} / {MAX_SCORE:g} <<<<")
+        print(f">>>> MODEL PUNCH SCORED: {score_val} / {MAX_SCORE:g} <<<<")
         print("DETAILS:", detail_scores)
+        print("METRICS:", metrics)
 
     except Exception as e:
         print(f"Error scoring punch: {e}")
@@ -241,7 +259,8 @@ def serial_from_nano(data):
         punch_buffer.append([
             now_ms,
             ax, ay, az,
-            gx, gy, gz
+            gx, gy, gz,
+            peak
         ])
 
         print(f"STORE PUNCH DATA: countdown={countdown:.1f}s buffer={len(punch_buffer)}")

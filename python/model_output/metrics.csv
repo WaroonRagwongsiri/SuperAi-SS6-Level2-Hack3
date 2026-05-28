@@ -1,0 +1,8 @@
+,0
+accuracy,0.9090909090909091
+precision,0.9090909090909091
+recall,1.0
+f1,0.9523809523809523
+n_train,172
+n_test,44
+features,"['ax_g', 'ay_g', 'az_g', 'gx_dps', 'gy_dps', 'gz_dps', 'acc_mag']"
