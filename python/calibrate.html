@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Distance Calibration</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --panel: rgba(255, 255, 255, 0.065);
+      --panel-strong: rgba(255, 255, 255, 0.095);
+      --line: rgba(255, 255, 255, 0.14);
+      --red: #dc2626;
+      --amber: #f59e0b;
+      --green: #22c55e;
+      --text: #ffffff;
+      --muted: #a1a1aa;
+      --dim: #71717a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 76% 18%, rgba(220, 38, 38, 0.12), transparent 32%),
+        #050505;
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    .header {
+      min-height: 72px;
+      padding: 14px clamp(18px, 4vw, 32px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 15px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .nav-button:hover {
+      color: #ef4444;
+      border-color: rgba(220, 38, 38, 0.48);
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 900;
+      font-style: italic;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .brand span {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(220, 38, 38, 0.52);
+    }
+
+    main {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: clamp(18px, 4vw, 34px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(310px, 0.55fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .camera-panel {
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(28px, 5vw, 56px);
+      line-height: 0.95;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .status-line {
+      min-height: 28px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cam-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border: 3px solid #262626;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.36);
+    }
+
+    .cam-wrap.ready {
+      border-color: rgba(34, 197, 94, 0.8);
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.22);
+    }
+
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #poseCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 8;
+    }
+
+    .placeholder {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: #111;
+      text-align: center;
+    }
+
+    .placeholder p {
+      margin: 0;
+      color: #777;
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .primary-button {
+      min-height: 46px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 18px;
+      background: var(--red);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 900;
+      text-transform: uppercase;
+      box-shadow: 0 0 24px rgba(220, 38, 38, 0.28);
+      transition: transform 160ms ease, opacity 160ms ease;
+    }
+
+    .primary-button:hover {
+      transform: translateY(-1px);
+      opacity: 0.92;
+    }
+
+    .primary-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      transform: none;
+    }
+
+    .side-panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .field input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.38);
+      color: #fff;
+      padding: 0 12px;
+      font-size: 16px;
+      font-weight: 800;
+      outline: none;
+    }
+
+    .field input:focus {
+      border-color: rgba(245, 158, 11, 0.64);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .metric .label {
+      color: var(--dim);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric .value {
+      color: #fff;
+      font-size: 23px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .metric.full {
+      grid-column: 1 / -1;
+    }
+
+    .saved {
+      min-height: 38px;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .saved.good {
+      color: var(--green);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .nav-button {
+        width: max-content;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="nav-button" type="button" onclick="window.location.href='mode.html'">Back</button>
+    <div class="brand">Distance <span>Calibration</span></div>
+  </header>
+
+  <main>
+    <section class="camera-panel">
+      <h1>Camera Distance</h1>
+      <div class="status-line" id="statusLine">Open camera and stand at the known distance</div>
+
+      <div class="cam-wrap" id="camWrap">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="poseCanvas"></canvas>
+        <div class="placeholder" id="placeholder">
+          <p>Camera permission required</p>
+          <button class="primary-button" type="button" id="openBtn">Open Webcam</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="field">
+        <label for="knownDistance">Known distance from camera (m)</label>
+        <input id="knownDistance" type="number" min="0.3" max="8" step="0.05" value="1.50">
+      </div>
+
+      <div class="field">
+        <label for="shoulderWidth">Real shoulder width (m)</label>
+        <input id="shoulderWidth" type="number" min="0.2" max="0.8" step="0.01" value="0.40">
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">Shoulder px</div>
+          <div class="value" id="shoulderPx">--</div>
+        </div>
+        <div class="metric">
+          <div class="label">Live distance</div>
+          <div class="value" id="liveDistance">--</div>
+        </div>
+        <div class="metric full">
+          <div class="label">Focal length</div>
+          <div class="value" id="focalLength">--</div>
+        </div>
+      </div>
+
+      <button class="primary-button" type="button" id="saveBtn" disabled>Save Calibration</button>
+      <div class="saved" id="savedLine">No saved calibration</div>
+    </aside>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script>
+    const POSE_LANDMARKS = {
+      LEFT_SHOULDER: 11,
+      RIGHT_SHOULDER: 12
+    };
+
+    const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('poseCanvas');
+    const ctx = canvas.getContext('2d');
+    const camWrap = document.getElementById('camWrap');
+    const placeholder = document.getElementById('placeholder');
+    const openBtn = document.getElementById('openBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const knownDistanceInput = document.getElementById('knownDistance');
+    const shoulderWidthInput = document.getElementById('shoulderWidth');
+    const statusLine = document.getElementById('statusLine');
+    const shoulderPxEl = document.getElementById('shoulderPx');
+    const liveDistanceEl = document.getElementById('liveDistance');
+    const focalLengthEl = document.getElementById('focalLength');
+    const savedLine = document.getElementById('savedLine');
+
+    let poseTracker = null;
+    let poseBusy = false;
+    let latestShoulderPx = 0;
+    let latestFocalLength = 0;
+    let savedFocalLength = Number(getCookie('poseFocalLengthPx')) || 0;
+
+    function setCookie(name, value) {
+      document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
+    }
+
+    function getCookie(name) {
+      return document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(`${name}=`))
+        ?.split('=')
+        .slice(1)
+        .join('=') || '';
+    }
+
+    function formatNumber(value, digits = 2) {
+      return Number.isFinite(value) ? value.toFixed(digits) : '--';
+    }
+
+    function getInputNumber(input) {
+      const value = Number(input.value);
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      return rect;
+    }
+
+    function hasUsableLandmark(point) {
+      return point
+        && Number.isFinite(point.x)
+        && Number.isFinite(point.y)
+        && (point.visibility === undefined || point.visibility >= 0.45);
+    }
+
+    function drawShoulderLine(results, rect) {
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      if (!results.poseLandmarks || typeof drawConnectors !== 'function') return;
+
+      drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+        color: '#22c55e',
+        lineWidth: 4
+      });
+      drawLandmarks(ctx, results.poseLandmarks, {
+        color: '#f43f5e',
+        lineWidth: 2,
+        radius: 3
+      });
+
+      const left = results.poseLandmarks[POSE_LANDMARKS.LEFT_SHOULDER];
+      const right = results.poseLandmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
+      if (!hasUsableLandmark(left) || !hasUsableLandmark(right)) return;
+
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(left.x * rect.width, left.y * rect.height);
+      ctx.lineTo(right.x * rect.width, right.y * rect.height);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateCalibration(results) {
+      const rect = resizeCanvas();
+      drawShoulderLine(results, rect);
+
+      const left = results.poseLandmarks?.[POSE_LANDMARKS.LEFT_SHOULDER];
+      const right = results.poseLandmarks?.[POSE_LANDMARKS.RIGHT_SHOULDER];
+      if (!hasUsableLandmark(left) || !hasUsableLandmark(right)) {
+        latestShoulderPx = 0;
+        latestFocalLength = 0;
+        shoulderPxEl.textContent = '--';
+        focalLengthEl.textContent = '--';
+        liveDistanceEl.textContent = '--';
+        saveBtn.disabled = true;
+        statusLine.textContent = 'Move until both shoulders are visible';
+        camWrap.classList.remove('ready');
+        return;
+      }
+
+      const dx = (left.x - right.x) * rect.width;
+      const dy = (left.y - right.y) * rect.height;
+      latestShoulderPx = Math.hypot(dx, dy);
+
+      const knownDistance = getInputNumber(knownDistanceInput);
+      const shoulderWidth = getInputNumber(shoulderWidthInput);
+      latestFocalLength = shoulderWidth > 0 ? (latestShoulderPx * knownDistance) / shoulderWidth : 0;
+
+      const liveDistance = savedFocalLength > 0 && latestShoulderPx > 0
+        ? (shoulderWidth * savedFocalLength) / latestShoulderPx
+        : knownDistance;
+
+      shoulderPxEl.textContent = formatNumber(latestShoulderPx, 0);
+      focalLengthEl.textContent = formatNumber(latestFocalLength, 1);
+      liveDistanceEl.textContent = `${formatNumber(liveDistance, 2)} m`;
+      saveBtn.disabled = !(latestFocalLength > 0);
+      statusLine.textContent = 'Shoulders detected';
+      camWrap.classList.add('ready');
+    }
+
+    function startPoseTracking() {
+      if (poseTracker || typeof Pose !== 'function') return;
+
+      poseTracker = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+      poseTracker.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      poseTracker.onResults(updateCalibration);
+
+      async function frame() {
+        resizeCanvas();
+        if (!poseBusy && video.readyState >= 2) {
+          poseBusy = true;
+          await poseTracker.send({ image: video }).catch(() => {});
+          poseBusy = false;
+        }
+        requestAnimationFrame(frame);
+      }
+
+      frame();
+    }
+
+    async function openCamera() {
+      try {
+        statusLine.textContent = 'Starting camera';
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        placeholder.style.display = 'none';
+        startPoseTracking();
+      } catch (error) {
+        statusLine.textContent = 'Camera permission needed';
+        alert(`Camera error: ${error.name} - ${error.message}`);
+      }
+    }
+
+    function saveCalibration() {
+      const shoulderWidth = getInputNumber(shoulderWidthInput);
+      const knownDistance = getInputNumber(knownDistanceInput);
+      if (!(latestFocalLength > 0) || !(shoulderWidth > 0) || !(knownDistance > 0)) return;
+
+      savedFocalLength = latestFocalLength;
+      setCookie('poseFocalLengthPx', latestFocalLength.toFixed(4));
+      setCookie('poseShoulderWidthM', shoulderWidth.toFixed(4));
+      setCookie('poseCalibrationDistanceM', knownDistance.toFixed(4));
+      setCookie('poseCalibrationAt', String(Date.now()));
+      showSavedCalibration();
+    }
+
+    function showSavedCalibration() {
+      const focal = Number(getCookie('poseFocalLengthPx'));
+      const distance = Number(getCookie('poseCalibrationDistanceM'));
+      const shoulder = Number(getCookie('poseShoulderWidthM'));
+
+      if (!Number.isFinite(focal) || focal <= 0) {
+        savedLine.textContent = 'No saved calibration';
+        savedLine.classList.remove('good');
+        return;
+      }
+
+      savedLine.textContent = `Saved: focal ${focal.toFixed(1)} px, distance ${distance.toFixed(2)} m, shoulder ${shoulder.toFixed(2)} m`;
+      savedLine.classList.add('good');
+    }
+
+    openBtn.addEventListener('click', openCamera);
+    saveBtn.addEventListener('click', saveCalibration);
+    window.addEventListener('resize', resizeCanvas);
+    showSavedCalibration();
+  </script>
+</body>
+</html>
