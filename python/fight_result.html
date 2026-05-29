@@ -171,6 +171,30 @@
       font-size: 24px;
     }
 
+    .advice-card {
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 12px;
+      background: rgba(0,0,0,.34);
+      padding: 16px;
+    }
+
+    .advice-status {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .advice-text {
+      margin: 10px 0 0;
+      color: #f4f4f5;
+      font-size: 15px;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -248,6 +272,14 @@
           <div class="metrics-grid" id="metricGrid"></div>
         </section>
 
+        <section class="panel metrics" id="advicePanel">
+          <h2 class="metrics-title">AI Coach</h2>
+          <div class="advice-card">
+            <div class="advice-status" id="adviceStatus">Reading punch data</div>
+            <p class="advice-text" id="adviceText"></p>
+          </div>
+        </section>
+
         <section class="actions">
           <button class="action primary" id="againButton" type="button">Fight Again</button>
           <button class="action" id="homeButton" type="button">Home</button>
@@ -303,6 +335,34 @@
 
     renderGrid('scoreGrid', 'scorePanel', result.details, ' score');
     renderGrid('metricGrid', 'metricPanel', result.metrics);
+
+    async function loadPunchAdvice() {
+      const status = document.getElementById('adviceStatus');
+      const text = document.getElementById('adviceText');
+
+      try {
+        const response = await fetch('/punch-advice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'fight', result })
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || 'Coach request failed');
+        }
+
+        status.textContent = payload.source === 'local'
+          ? 'Local coach'
+          : `Gemini coach: ${payload.source}`;
+        text.textContent = payload.advice || 'No advice returned.';
+      } catch (error) {
+        status.textContent = 'Coach unavailable';
+        text.textContent = error.message || 'Could not load punch advice.';
+      }
+    }
+
+    loadPunchAdvice();
 
     document.getElementById('againButton').addEventListener('click', () => {
       window.location.href = 'fight_mode.html';

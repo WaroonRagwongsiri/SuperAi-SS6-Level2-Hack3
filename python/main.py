@@ -4,6 +4,10 @@ import threading
 import os
 import re
 import sqlite3
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -35,6 +39,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "fight_scores.db")
 MODEL_DIR = os.path.join(BASE_DIR, "model_output")
 PUNCH_MODEL = TorchScriptPunchPredictor(MODEL_DIR)
+ENV_PATH = os.path.join(BASE_DIR, ".env")
 PUNCH_DETECTION_THRESHOLD = 0.65
 PUNCH_MODEL.threshold = max(PUNCH_MODEL.threshold, PUNCH_DETECTION_THRESHOLD)
 RESTING_SEC = 2.0
@@ -48,6 +53,26 @@ last_state = "resting"
 db_lock = threading.Lock()
 
 api = FastAPI()
+
+
+def load_env_file(path):
+    if not os.path.isfile(path):
+        return
+
+    with open(path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+load_env_file(ENV_PATH)
 
 # Nano format:
 # control=0 acc=0.02,-0.76,0.61 gyro=0.7,2.1,1.0 peak=0.19
@@ -113,6 +138,111 @@ def get_leaderboard_rows(limit=10):
         }
         for row in rows
     ]
+
+
+def extract_gemini_text(payload):
+    parts = []
+    for candidate in payload.get("candidates", []):
+        content = candidate.get("content", {})
+        for part in content.get("parts", []):
+            text = part.get("text")
+            if text:
+                parts.append(text.strip())
+    return "\n".join(parts).strip()
+
+
+def fallback_punch_advice(result):
+    details = result.get("details") or {}
+    metrics = result.get("metrics") or {}
+    weak_scores = sorted(
+        (
+            (key, float(value))
+            for key, value in details.items()
+            if isinstance(value, (int, float)) and key != "duration"
+        ),
+        key=lambda item: item[1]
+    )
+    weakest = weak_scores[0][0].replace("_", " ") if weak_scores else "straightness"
+    straightness = metrics.get("straightness")
+    snap = metrics.get("snap")
+
+    lines = [
+        "ยังไม่ได้ตั้งค่า Gemini API key ตอนนี้จึงใช้คำแนะนำพื้นฐานจากระบบ:",
+        f"ควรฝึกเรื่อง {weakest} ก่อน",
+        "หมัดตรงควรออกจากการ์ดเป็นเส้นตรง หมุนสะโพกและไหล่ด้านหลังไปพร้อมกัน แล้วรีบดึงหมัดกลับมาที่แก้ม",
+    ]
+
+    if isinstance(straightness, (int, float)) and straightness < 0.7:
+        lines.append("แนวหมัดยังโค้งเล็กน้อย ให้เล็งผ่านจุดเดียวตรงหน้า และเก็บศอกให้อยู่หลังหมัด")
+
+    if isinstance(snap, (int, float)) and snap < 0.65:
+        lines.append("ถ้าอยากให้หมัดคมขึ้น ให้ผ่อนแรงก่อนออกหมัด เกร็งตอนกระแทก แล้วดึงกลับทันที")
+
+    return "\n".join(lines)
+
+
+def build_punch_prompt(result, mode):
+    return f"""
+คุณเป็นโค้ชมวยที่ช่วยผู้เริ่มต้นพัฒนาหมัด cross punch หรือหมัดตรง
+ใช้คะแนนจากเซนเซอร์และ motion metrics ด้านล่างเพื่อให้คำแนะนำ
+ตอบเป็นภาษาไทยเท่านั้น ใช้คำง่าย ๆ สั้น ชัดเจน เหมาะกับคนเพิ่งฝึก
+อย่าวินิจฉัยอาการบาดเจ็บ ให้แนะนำเฉพาะเทคนิคและแบบฝึก
+
+Mode: {mode}
+Punch count: {result.get("punchCount", 0)}
+Average score: {result.get("averageScore", 0)} out of {MAX_SCORE:g}
+Score breakdown: {json.dumps(result.get("details") or {}, sort_keys=True)}
+Motion metrics: {json.dumps(result.get("metrics") or {}, sort_keys=True)}
+
+รูปแบบคำตอบ:
+1. สรุปสั้น ๆ 1 ประโยคว่าหมัดนี้ควรปรับอะไรที่สุด
+2. จุดที่ต้องแก้ 3 ข้อ แต่ละข้อให้มีคำสั่งที่ทำตามได้ทันที
+3. แบบฝึก 30 วินาทีสำหรับรอบถัดไป
+""".strip()
+
+
+def request_gemini_advice(result, mode):
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return {"advice": fallback_punch_advice(result), "source": "local"}
+
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite").strip() or "gemini-2.5-flash-lite"
+    prompt = build_punch_prompt(result, mode)
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        + urllib.parse.quote(model, safe="")
+        + ":generateContent?key="
+        + urllib.parse.quote(api_key, safe="")
+    )
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 360,
+        },
+    }
+    data = json.dumps(body).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        message = exc.read().decode("utf-8", errors="ignore") or str(exc)
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {message[:300]}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
+
+    advice = extract_gemini_text(payload)
+    if not advice:
+        raise HTTPException(status_code=502, detail="Gemini returned no coaching text")
+
+    return {"advice": advice, "source": model}
 
 
 def get_current_state():
@@ -284,6 +414,17 @@ async def fight_results(request: Request):
         data.get("average_score")
     )
     return {"ok": True}
+
+@api.post("/punch-advice")
+async def punch_advice(request: Request):
+    data = await request.json()
+    result = data.get("result") or {}
+    mode = str(data.get("mode") or "training")[:40]
+
+    if not isinstance(result, dict):
+        raise HTTPException(status_code=400, detail="Invalid result payload")
+
+    return request_gemini_advice(result, mode)
 
 @api.get("/leaderboard-data")
 def leaderboard_data():
